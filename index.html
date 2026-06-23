@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.1.4</title>
+<title>ZL Motos v5.5.9.1</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3091,7 +3091,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.1.4</div>
+  <div class="splash-version">v5.5.9.1</div>
 </div>
 
 <!-- APP -->
@@ -3102,7 +3102,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.1.4</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.1</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -3126,6 +3126,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
         🔔
         <span id="sino-badge">0</span>
       </button>
+      <button class="btn-hdr btn-config" onclick="abrirSecao(16)" title="Configurações">⚙️ Config</button>
       <button class="btn-hdr btn-config" onclick="abrirModalSenha()">🔑 Senha</button>
       <button class="btn-hdr btn-logout" onclick="fazerLogout()">🚪 Sair</button>
     </div>
@@ -12789,6 +12790,13 @@ function agSelecionarCliente(data) {
   renderAgendamentos();
 }
 
+function agSelecionarClienteComHora(data, hora) {
+  agSelecionarClienteData = data;
+  agBuscaCliente = '';
+  agHoraPre = hora;
+  renderAgendamentos();
+}
+
 function agSelecionarClienteHTML() {
   if (!agSelecionarClienteData) return '';
 
@@ -12875,7 +12883,7 @@ function agNovoAgendamento(data, cli) {
   agendamentos.push({
     id,
     data: data || hojeISO(),
-    hora: '08:00',
+    hora: agHoraPre || '08:00',
     cliente: cli ? (cli.nome || '') : '',
     telefone: cli ? (cli.telefone || '') : '',
     placa: cli ? (cli.placa || '') : '',
@@ -12885,6 +12893,7 @@ function agNovoAgendamento(data, cli) {
     status: 'agendado',
     criadoEm: new Date().toISOString()
   });
+  agHoraPre = '';
   salvarAgendamentos();
   renderAgendamentos();
 }
@@ -12970,144 +12979,167 @@ function agPrimeiroDiaSemana(mes, ano) {
 function renderAgendamentos() {
   const main = document.getElementById('mainContent');
   const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-  const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Novembro','Dezembro'];
+  const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const hoje = hojeISO();
-  const totalDias = agDiasDoMes(agCalMes, agCalAno);
+  const totalDias   = agDiasDoMes(agCalMes, agCalAno);
   const primeiroDia = agPrimeiroDiaSemana(agCalMes, agCalAno);
-  const mesSelecionado = agCalMes;
-  const anoSelecionado = agCalAno;
+  const HORARIOS_DIA = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
 
-  // Montar grade do calendário
+  // ── STATS ──────────────────────────────────────────────────
+  const agsHojeAll = agendamentos.filter(a => a.data === hoje);
+  const totalMes   = agendamentos.filter(a => {
+    if (!a.data) return false;
+    const [y,m] = a.data.split('-').map(Number);
+    return y === agCalAno && (m-1) === agCalMes;
+  });
+  const confirmados = totalMes.filter(a => a.status === 'confirmado' || a.status === 'concluido').length;
+  const aguardando  = totalMes.filter(a => a.status === 'agendado').length;
+  const cancelados  = totalMes.filter(a => a.status === 'cancelado').length;
+
+  // ── CALENDÁRIO ─────────────────────────────────────────────
   let celulas = [];
   for (let i = 0; i < primeiroDia; i++) celulas.push(null);
   for (let d = 1; d <= totalDias; d++) celulas.push(d);
   while (celulas.length % 7 !== 0) celulas.push(null);
 
   const diasHTML = celulas.map(d => {
-    if (!d) return '<div style="padding:4px"></div>';
-    const dataStr = anoSelecionado + '-' + String(mesSelecionado + 1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-    const agsHoje = agendamentos.filter(a => a.data === dataStr).sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
+    if (!d) return '<div></div>';
+    const dataStr = agCalAno + '-' + String(agCalMes+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const agsD = agendamentos.filter(a => a.data === dataStr).sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
     const isHoje = dataStr === hoje;
-    const isBloqueado = agHorariosBloqueados[dataStr]?.length > 0;
-    const isSelected = agModalAberto && agendamentos.find(a => a.id === agModalAberto)?.data === dataStr;
+    const isSel  = agDiaSelecionado === dataStr || (agModalAberto && agendamentos.find(a=>a.id===agModalAberto)?.data===dataStr);
+    const isBloq = agHorariosBloqueados[dataStr]?.length > 0;
 
-    const cls = 'ag-cal-cell' + (isHoje ? ' hoje' : '') + (isBloqueado ? ' bloqueado' : '') + (isSelected ? ' selecionado' : '');
-
-    const chipsHTML = agsHoje.slice(0,3).map(a => {
+    const chips = agsD.slice(0,2).map(a => {
       const s = AG_STATUS[a.status] || AG_STATUS['agendado'];
-      const cor = s.cor;
-      return '<div class="ag-chip" style="border-left-color:' + cor + ';color:' + cor + '" onclick="event.stopPropagation();agModalAberto=\'' + a.id + '\';renderAgendamentos()">'
-        + s.icon + ' ' + (a.hora||'') + ' ' + (a.cliente||'Sem nome')
+      return '<div style="font-size:.62rem;padding:1px 5px;border-radius:3px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:' + s.bg + ';color:' + s.cor + '">'
+        + (a.hora||'') + ' ' + (a.cliente||'').split(' ')[0]
         + '</div>';
     }).join('');
+    const extra = agsD.length > 2 ? '<div style="font-size:.58rem;color:var(--color-text-muted)">+' + (agsD.length-2) + '</div>' : '';
 
-    const extra = agsHoje.length > 3 ? '<div style="font-size:.6rem;color:var(--color-text-muted);padding:1px 4px">+' + (agsHoje.length - 3) + ' mais</div>' : '';
-
-    return '<div class="' + cls + '" onclick="event.shiftKey ? agBloquearHorario(\'' + dataStr + '\') : agAbrirDia(\'' + dataStr + '\')">'
-      + '<div style="display:flex;flex-direction:column;align-items:center;margin-bottom:3px">'
-      + '<div style="font-size:.82rem;font-weight:700;width:26px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:8px 8px 0 0;background:' + (isHoje ? '#F5D547' : 'transparent') + ';color:' + (isHoje ? '#0a0a0b' : 'var(--color-text-primary)') + '">' + d + '</div>'
-      + (isHoje ? '<div style="font-size:.45rem;height:12px;display:flex;align-items:center;justify-content:center;width:26px;border-radius:0 0 8px 8px;background:#F5D547;color:#0a0a0b;letter-spacing:.08em;font-weight:700">HOJ</div>' : '')
+    return '<div onclick="agAbrirDia(\'' + dataStr + '\')" style="'
+      + 'border:' + (isSel ? '1.5px solid #60a5fa' : isHoje ? '1.5px solid #34d399' : '1px solid rgba(255,255,255,.07)') + ';'
+      + 'border-radius:10px;padding:5px 6px;min-height:68px;cursor:pointer;'
+      + 'background:' + (isSel ? 'rgba(96,165,250,.08)' : isHoje ? 'rgba(52,211,153,.06)' : 'rgba(255,255,255,.025)') + ';'
+      + 'transition:border-color .15s,background .15s'
+      + '" onmouseover="this.style.borderColor=\'rgba(255,255,255,.2)\'" onmouseout="this.style.borderColor=\'' + (isSel?'#60a5fa':isHoje?'#34d399':'rgba(255,255,255,.07)') + '\'">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px">'
+      + '<div style="font-size:.78rem;font-weight:700;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:50%;'
+      + (isHoje ? 'background:#F5D547;color:#0a0a0b' : 'color:var(--color-text-primary)') + '">' + d + '</div>'
+      + (isBloq ? '<span style="font-size:.55rem;color:#fca5a5">🔒</span>' : '')
+      + (agsD.length > 0 ? '<span style="font-size:.6rem;color:var(--color-text-muted)">' + agsD.length + '</span>' : '')
       + '</div>'
-      + (isBloqueado ? '<div style="font-size:.5rem;color:#C8102E;text-align:center">🔒</div>' : '')
-      + chipsHTML + extra
+      + chips + extra
       + '</div>';
   }).join('');
 
-  // Painel lateral de detalhe do agendamento selecionado
-  let detalheHTML = '';
-  if (agModalAberto) {
+  // ── PAINEL LATERAL: timeline do dia selecionado ────────────
+  let painelHTML = '';
+  if (agDiaSelecionado) {
+    const [y,m,d] = agDiaSelecionado.split('-').map(Number);
+    const dtObj = new Date(y, m-1, d);
+    const nomeDia = DIAS_SEMANA[dtObj.getDay()];
+    const dataFmt = String(d).padStart(2,'0') + '/' + String(m).padStart(2,'0') + '/' + y;
+    const agsD = agendamentos.filter(a => a.data === agDiaSelecionado).sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
+
+    const timelineHTML = HORARIOS_DIA.map(h => {
+      const ag = agsD.find(a => a.hora === h);
+      if (ag) {
+        const s = AG_STATUS[ag.status] || AG_STATUS['agendado'];
+        return '<div style="display:flex;gap:8px;align-items:stretch;margin-bottom:4px">'
+          + '<div style="font-size:.7rem;color:var(--color-text-muted);width:38px;padding-top:8px;text-align:right;flex-shrink:0">' + h + '</div>'
+          + '<div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0">'
+          + '<div style="width:8px;height:8px;border-radius:50%;background:' + s.cor + ';margin-top:10px;flex-shrink:0"></div>'
+          + '<div style="flex:1;width:1px;background:rgba(255,255,255,.08);margin-top:2px"></div>'
+          + '</div>'
+          + '<div style="flex:1;padding-bottom:8px">'
+          + '<div onclick="agModalAberto=\'' + ag.id + '\';agDiaSelecionado=null;renderAgendamentos()" style="background:' + s.bg + ';border:1px solid ' + s.cor + '33;border-radius:8px;padding:7px 10px;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity=\'.8\'" onmouseout="this.style.opacity=\'1\'">'
+          + '<div style="display:flex;justify-content:space-between;align-items:center">'
+          + '<span style="font-size:.8rem;font-weight:700;color:var(--color-text-primary)">' + (ag.cliente||'Sem nome') + '</span>'
+          + agStatusBadge(ag.status)
+          + '</div>'
+          + '<div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">' + (ag.tipo||'Serviço') + (ag.veiculo?' &middot; '+ag.veiculo:'') + '</div>'
+          + '</div>'
+          + '</div>'
+          + '</div>';
+      } else {
+        return '<div style="display:flex;gap:8px;align-items:stretch;margin-bottom:4px">'
+          + '<div style="font-size:.7rem;color:rgba(255,255,255,.2);width:38px;padding-top:6px;text-align:right;flex-shrink:0">' + h + '</div>'
+          + '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">'
+          + '<div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.1);margin-top:8px;flex-shrink:0"></div>'
+          + '<div style="flex:1;width:1px;background:rgba(255,255,255,.05);margin-top:2px"></div>'
+          + '</div>'
+          + '<div style="flex:1;padding-bottom:4px">'
+          + '<div onclick="agSelecionarClienteComHora(\'' + agDiaSelecionado + '\',\'' + h + '\')" style="padding:4px 8px;border-radius:6px;cursor:pointer;color:rgba(255,255,255,.2);font-size:.72rem;transition:all .15s" onmouseover="this.style.background=\'rgba(52,211,153,.08)\';this.style.color=\'#34d399\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'rgba(255,255,255,.2)\'">'
+          + '+ livre — agendar'
+          + '</div>'
+          + '</div>'
+          + '</div>';
+      }
+    }).join('');
+
+    painelHTML = '<div style="display:flex;flex-direction:column;gap:10px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between">'
+      + '<div>'
+      + '<div style="font-size:.65rem;letter-spacing:2px;color:var(--color-text-muted);text-transform:uppercase">' + nomeDia + '</div>'
+      + '<div style="font-size:.95rem;font-weight:700">' + dataFmt + '</div>'
+      + '</div>'
+      + '<button onclick="agDiaSelecionado=null;renderAgendamentos()" style="background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--color-text-muted);border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:.8rem">✕</button>'
+      + '</div>'
+      + '<button onclick="agSelecionarCliente(\'' + agDiaSelecionado + '\')" style="width:100%;padding:9px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399;border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:700">+ Novo agendamento neste dia</button>'
+      + '<div style="overflow-y:auto;max-height:520px;padding-right:2px">' + timelineHTML + '</div>'
+      + '</div>';
+
+  } else if (agModalAberto) {
     const ag = agendamentos.find(a => a.id === agModalAberto);
     if (ag) {
       const s = AG_STATUS[ag.status] || AG_STATUS['agendado'];
       const optsStatus = Object.entries(AG_STATUS).map(([k,v]) => '<option value="' + k + '"' + (ag.status===k?' selected':'') + '>' + v.icon + ' ' + v.txt + '</option>').join('');
-      const optsTipo = AG_TIPOS.map(t => '<option value="' + t + '"' + (ag.tipo===t?' selected':'') + '>' + t + '</option>').join('');
-
-      detalheHTML = '<div class="ag-ticket-wrapper">'
-        + '<div class="ag-ticket">'
-
-        // MAIN do ticket
-        + '<div class="ag-ticket-main">'
-        + '<div class="ag-ticket-content">'
-        + '<div class="ag-ticket-header">'
-        + '<div class="ag-ticket-logo">🏍️ ZL MOTOS</div>'
-        + '<div style="display:flex;align-items:center;gap:8px">'
-        + '<div class="ag-ticket-type">' + (ag.status||'agendado').toUpperCase() + '</div>'
-        + '<button onclick="agModalAberto=null;renderAgendamentos()" class="btn-voltar" title="Fechar" style="width:28px;height:28px"><span class="bv-box"><svg class="bv-elem" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg><svg class="bv-elem" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#96daf0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></span></button>'
-        + '</div></div>'
-        + '<div class="ag-ticket-title">' + (ag.cliente||'Sem Nome') + '</div>'
-        + '<div class="ag-ticket-sub">' + (ag.tipo||'Serviço') + '</div>'
-        + '<div class="ag-ticket-details">'
-        + '<div class="ag-ticket-detail"><span class="ag-ticket-label">Data</span><span class="ag-ticket-value">' + (ag.data ? new Date(ag.data+'T12:00:00').toLocaleDateString('pt-BR') : '—') + '</span></div>'
-        + '<div class="ag-ticket-detail"><span class="ag-ticket-label">Hora</span><span class="ag-ticket-value">' + (ag.hora||'—') + '</span></div>'
-        + '<div class="ag-ticket-detail"><span class="ag-ticket-label">Veículo</span><span class="ag-ticket-value">' + (ag.veiculo||'—') + '</span></div>'
-        + '<div class="ag-ticket-detail"><span class="ag-ticket-label">Placa</span><span class="ag-ticket-value">' + (ag.placa||'—') + '</span></div>'
+      const optsTipo   = AG_TIPOS.map(t => '<option value="' + t + '"' + (ag.tipo===t?' selected':'') + '>' + t + '</option>').join('');
+      painelHTML = '<div style="display:flex;flex-direction:column;gap:0">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+        + '<div style="font-size:.65rem;letter-spacing:2px;color:' + s.cor + ';text-transform:uppercase">✏️ Editar Agendamento</div>'
+        + '<button onclick="agModalAberto=null;renderAgendamentos()" style="background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--color-text-muted);border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:.8rem">✕</button>'
         + '</div>'
+        + '<div style="background:' + s.bg + ';border:1px solid ' + s.cor + '33;border-radius:10px;padding:12px;margin-bottom:12px">'
+        + '<div style="font-size:1rem;font-weight:700">' + (ag.cliente||'Sem Nome') + '</div>'
+        + '<div style="font-size:.75rem;color:var(--color-text-muted);margin-top:2px">' + (ag.tipo||'Serviço') + ' &middot; ' + (ag.data ? new Date(ag.data+'T12:00:00').toLocaleDateString('pt-BR') : '—') + ' ' + (ag.hora||'') + '</div>'
         + '</div>'
-        // perfuração
-        + '<div class="ag-ticket-perf"><div class="ag-ticket-perf-line"></div></div>'
+        + '<div class="orc-field"><label>📅 Data</label><input type="date" value="' + ag.data + '" oninput="agSalvarCampo(\'' + ag.id + '\',\'data\',this.value);renderAgendamentos()"/></div>'
+        + '<div class="orc-field"><label>⏰ Hora</label><input type="time" value="' + (ag.hora||'08:00') + '" oninput="agSalvarCampo(\'' + ag.id + '\',\'hora\',this.value)"/></div>'
+        + '<div class="orc-field"><label>👤 Cliente</label><input type="text" value="' + (ag.cliente||'').replace(/"/g,'&quot;') + '" placeholder="Nome do cliente..." oninput="agSalvarCampo(\'' + ag.id + '\',\'cliente\',this.value)"/></div>'
+        + '<div class="orc-field"><label>📞 Telefone</label><input type="text" value="' + (ag.telefone||'').replace(/"/g,'&quot;') + '" placeholder="(17) 99999-9999" oninput="agSalvarCampo(\'' + ag.id + '\',\'telefone\',this.value)"/></div>'
+        + '<div class="orc-field"><label>🏍️ Veículo</label><input type="text" value="' + (ag.veiculo||'').replace(/"/g,'&quot;') + '" placeholder="Modelo..." oninput="agSalvarCampo(\'' + ag.id + '\',\'veiculo\',this.value)"/></div>'
+        + '<div class="orc-field"><label>🔖 Placa</label><input type="text" value="' + (ag.placa||'').replace(/"/g,'&quot;') + '" placeholder="ABC-1234" style="text-transform:uppercase" oninput="agSalvarCampo(\'' + ag.id + '\',\'placa\',this.value.toUpperCase());this.value=this.value.toUpperCase()"/></div>'
+        + '<div class="orc-field"><label>🔧 Tipo de Serviço</label><select onchange="agSalvarCampo(\'' + ag.id + '\',\'tipo\',this.value)">' + optsTipo + '</select></div>'
+        + '<div class="orc-field"><label>📊 Status</label><select onchange="agSalvarCampo(\'' + ag.id + '\',\'status\',this.value);renderAgendamentos()">' + optsStatus + '</select></div>'
+        + '<div class="orc-field"><label>📝 Observações</label><textarea placeholder="Anotações sobre o serviço..." style="height:60px;resize:vertical" oninput="agSalvarCampo(\'' + ag.id + '\',\'obs\',this.value)">' + (ag.obs||'') + '</textarea></div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">'
+        + '<button onclick="agConverterParaOrcamento(\'' + ag.id + '\')" class="btn ag-ticket-btn-orc" style="width:100%">🏍️ Confirmar Chegada → Orçamento</button>'
+        + '<button onclick="agConverterParaOS(\'' + ag.id + '\')" class="btn" style="width:100%;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-weight:700">🔧 Iniciar OS diretamente</button>'
+        + '<button onclick="agExcluir(\'' + ag.id + '\')" class="btn btn-del" style="width:100%">🗑 Excluir</button>'
         + '</div>'
-
-        // STUB do ticket
-        + '<div class="ag-ticket-stub">'
-        + '<div>'
-        + '<div class="ag-ticket-barcode"></div>'
-        + '<div class="ag-ticket-barcode-id">' + ag.id.slice(-12).toUpperCase() + '</div>'
-        + '</div>'
-        + '<div>'
-        + '<div class="ag-ticket-seat-label">OS</div>'
-        + '<div class="ag-ticket-seat-num">' + s.icon + '</div>'
-        + '</div>'
-        + '</div>'
-
-        // CAMPOS editáveis
-        + '<div class="ag-ticket-fields">'
-        + '<div class="orc-field"><label>📅 Data</label>'
-        + '<input type="date" value="' + ag.data + '" oninput="agSalvarCampo(\'' + ag.id + '\',\'data\',this.value);renderAgendamentos()"/></div>'
-
-        + '<div class="orc-field"><label>⏰ Hora</label>'
-        + '<input type="time" value="' + (ag.hora||'08:00') + '" oninput="agSalvarCampo(\'' + ag.id + '\',\'hora\',this.value)"/></div>'
-
-        + '<div class="orc-field"><label>👤 Cliente</label>'
-        + '<input type="text" value="' + (ag.cliente||'').replace(/"/g,'&quot;') + '" placeholder="Nome do cliente..." oninput="agSalvarCampo(\'' + ag.id + '\',\'cliente\',this.value)"/></div>'
-
-        + '<div class="orc-field"><label>📞 Telefone</label>'
-        + '<input type="text" value="' + (ag.telefone||'').replace(/"/g,'&quot;') + '" placeholder="(17) 99999-9999" oninput="agSalvarCampo(\'' + ag.id + '\',\'telefone\',this.value)"/></div>'
-
-        + '<div class="orc-field"><label>🏍️ Veículo</label>'
-        + '<input type="text" value="' + (ag.veiculo||'').replace(/"/g,'&quot;') + '" placeholder="Modelo..." oninput="agSalvarCampo(\'' + ag.id + '\',\'veiculo\',this.value)"/></div>'
-
-        + '<div class="orc-field"><label>🔖 Placa</label>'
-        + '<input type="text" value="' + (ag.placa||'').replace(/"/g,'&quot;') + '" placeholder="ABC-1234" style="text-transform:uppercase" oninput="agSalvarCampo(\'' + ag.id + '\',\'placa\',this.value.toUpperCase());this.value=this.value.toUpperCase()"/></div>'
-
-        + '<div class="orc-field"><label>🔧 Tipo de Serviço</label>'
-        + '<select onchange="agSalvarCampo(\'' + ag.id + '\',\'tipo\',this.value)">' + optsTipo + '</select></div>'
-
-        + '<div class="orc-field"><label>📊 Status</label>'
-        + '<select onchange="agSalvarCampo(\'' + ag.id + '\',\'status\',this.value);renderAgendamentos()">' + optsStatus + '</select></div>'
-
-        + '<div class="orc-field"><label>📝 Observações</label>'
-        + '<textarea placeholder="Anotações sobre o serviço..." style="height:60px;resize:vertical" oninput="agSalvarCampo(\'' + ag.id + '\',\'obs\',this.value)">' + (ag.obs||'') + '</textarea></div>'
-
-        + '<button onclick="agConverterParaOrcamento(\'' + ag.id + '\')" class="btn ag-ticket-btn-orc">🏍️ Confirmar Chegada → Orçamento</button>'
-        + '<button onclick="agConverterParaOS(\'' + ag.id + '\')" class="btn" style="width:100%;margin-top:6px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);color:#a78bfa;font-weight:700">🔧 Iniciar OS diretamente</button>'
-        + '<button onclick="agExcluir(\'' + ag.id + '\')" class="btn btn-del" style="width:100%;margin-top:4px">🗑 Excluir Agendamento</button>'
-        + '</div>'
-
-        + '</div></div>';
+        + '</div>';
     }
+  } else {
+    painelHTML = '<div style="text-align:center;padding:30px 16px;color:var(--color-text-muted);font-size:.8rem;border:1px dashed rgba(255,255,255,.1);border-radius:12px">'
+      + '<div style="font-size:1.5rem;margin-bottom:8px">📅</div>'
+      + 'Clique em um dia para ver a agenda ou em um agendamento para editar'
+      + '</div>';
   }
 
-  // Hoje: lista do dia
-  const agsHojeGlobal = agendamentos.filter(a => a.data === hoje).sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
-  const hojeListaHTML = agsHojeGlobal.length === 0
+  // ── LISTA HOJE (coluna direita) ────────────────────────────
+  const hojeListaHTML = agsHojeAll.length === 0
     ? '<div style="font-size:.75rem;color:var(--color-text-muted);text-align:center;padding:12px 0">Nenhum agendamento hoje</div>'
-    : agsHojeGlobal.map(a => {
+    : agsHojeAll.sort((a,b)=>(a.hora||'').localeCompare(b.hora||'')).map(a => {
         const s = AG_STATUS[a.status] || AG_STATUS['agendado'];
-        return '<div class="ag-hoje-card" onclick="agModalAberto=\'' + a.id + '\';renderAgendamentos()">'
-          + '<div style="font-size:1rem">' + s.icon + '</div>'
+        return '<div onclick="agModalAberto=\'' + a.id + '\';agDiaSelecionado=null;renderAgendamentos()" class="ag-hoje-card">'
+          + '<div style="font-size:.9rem">' + s.icon + '</div>'
           + '<div style="flex:1;min-width:0">'
-          + '<div style="font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#f8fafc">' + (a.cliente||'Sem nome') + '</div>'
-          + '<div style="font-size:.68rem;color:#94a3b8">' + (a.hora||'—') + ' &middot; ' + (a.tipo||'—') + '</div>'
+          + '<div style="font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (a.cliente||'Sem nome') + '</div>'
+          + '<div style="font-size:.68rem;color:var(--color-text-muted)">' + (a.hora||'—') + ' &middot; ' + (a.tipo||'—') + '</div>'
           + '</div>'
           + agStatusBadge(a.status)
           + '</div>';
@@ -13122,108 +13154,75 @@ function renderAgendamentos() {
       </div>
     </div>
 
-    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+    <!-- STATS -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.15);border-radius:10px;padding:12px">
+        <div style="font-size:1.4rem;font-weight:700;color:#60a5fa">${agsHojeAll.length}</div>
+        <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">Hoje</div>
+      </div>
+      <div style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.15);border-radius:10px;padding:12px">
+        <div style="font-size:1.4rem;font-weight:700;color:#34d399">${confirmados}</div>
+        <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">Confirmados</div>
+      </div>
+      <div style="background:rgba(245,213,71,.08);border:1px solid rgba(245,213,71,.15);border-radius:10px;padding:12px">
+        <div style="font-size:1.4rem;font-weight:700;color:#F5D547">${aguardando}</div>
+        <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">Aguardando</div>
+      </div>
+      <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.15);border-radius:10px;padding:12px">
+        <div style="font-size:1.4rem;font-weight:700;color:#fca5a5">${cancelados}</div>
+        <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">Cancelados</div>
+      </div>
+    </div>
 
-      <!-- CALENDÁRIO MEETING CARD DARK -->
-      <div style="flex:1;min-width:300px">
-        <div style="background:#1a1b22;border-radius:2rem;padding:1.5rem;box-shadow:inset 2px 2px 10px rgba(0,0,0,0.6),inset -1px -1px 5px rgba(255,255,255,0.03),0 10px 30px rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.05)">
+    <div style="display:grid;grid-template-columns:1fr 280px 240px;gap:14px;align-items:flex-start">
 
-          <!-- Header -->
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
-            <div style="font-size:1.5rem;font-weight:700;color:var(--color-text-primary);line-height:1.2">
-              ${MESES_PT[agCalMes]}<br>
-              <span style="font-size:1rem;color:var(--color-text-muted);font-weight:500">${agCalAno}</span>
-            </div>
-            <div style="display:flex;gap:6px">
-              <button onclick="agCalMes--;if(agCalMes<0){agCalMes=11;agCalAno--;}renderAgendamentos()" style="width:36px;height:36px;border-radius:999px;background:#212121;border:1px solid rgba(255,255,255,0.08);color:var(--color-text-secondary);cursor:pointer;box-shadow:4px 4px 8px rgba(0,0,0,0.6),1px 1px 6px rgba(255,255,255,0.05);transition:all .2s;font-size:.9rem">◀</button>
-              <button onclick="agCalMes++;if(agCalMes>11){agCalMes=0;agCalAno++;}renderAgendamentos()" style="width:36px;height:36px;border-radius:999px;background:#212121;border:1px solid rgba(255,255,255,0.08);color:var(--color-text-secondary);cursor:pointer;box-shadow:4px 4px 8px rgba(0,0,0,0.6),1px 1px 6px rgba(255,255,255,0.05);transition:all .2s;font-size:.9rem">▶</button>
-            </div>
+      <!-- CALENDÁRIO -->
+      <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-size:.95rem;font-weight:700">${MESES_FULL[agCalMes]} ${agCalAno}</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button onclick="agCalMes--;if(agCalMes<0){agCalMes=11;agCalAno--;}renderAgendamentos()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--color-text-primary);border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:.9rem">‹</button>
+            <button onclick="agCalMes=new Date().getMonth();agCalAno=new Date().getFullYear();renderAgendamentos()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--color-text-muted);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:.72rem">Hoje</button>
+            <button onclick="agCalMes++;if(agCalMes>11){agCalMes=0;agCalAno++;}renderAgendamentos()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--color-text-primary);border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:.9rem">›</button>
           </div>
-
-          <!-- Info de agendamentos do mês -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.2rem">
-            <span style="font-size:1.2rem">📅</span>
-            <span style="font-size:0.8rem;color:var(--color-text-muted)">${agendamentos.filter(a=>a.data&&a.data.startsWith(agCalAno+'-'+String(agCalMes+1).padStart(2,'0'))).length} agendamento(s) este mês</span>
-          </div>
-
-          <!-- Seletor de semana — dias da semana header -->
-          <div style="background:#212121;border-radius:16px;padding:10px 6px;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:16px;box-shadow:inset 4px 4px 8px rgba(0,0,0,0.6),inset -1px -1px 4px rgba(255,255,255,0.04)">
-            ${DIAS_SEMANA.map(d => `
-              <div style="display:flex;flex-direction:column;align-items:center">
-                <div style="font-size:.62rem;color:var(--color-text-muted);font-weight:700;padding:2px 0;text-align:center">${d}</div>
-              </div>`).join('')}
-          </div>
-
-          <!-- Grade de dias -->
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:16px">
-            ${diasHTML}
-          </div>
-
-          <!-- Linha indicadora + dots -->
-          <div style="position:relative;padding:0 16px;margin-bottom:14px">
-            <div style="position:absolute;top:4px;left:20px;right:20px;height:1px;border-top:1.5px dashed rgba(255,255,255,0.08)"></div>
-            <div style="display:flex;justify-content:space-between">
-              ${DIAS_SEMANA.map((_,i) => {
-                const dataCheck = new Date(agCalAno, agCalMes, new Date().getDate() - new Date().getDay() + i);
-                const ds = dataCheck.toISOString().slice(0,10);
-                const temAg = agendamentos.some(a => a.data === ds);
-                return '<div style="width:8px;height:8px;border-radius:50%;background:'+(temAg?'var(--color-primary)':'rgba(255,255,255,0.12)')+';position:relative;z-index:2"></div>';
-              }).join('')}
-            </div>
-          </div>
-
-          <!-- Legenda -->
-          <div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px;background:#212121;border-radius:12px;box-shadow:inset 2px 2px 6px rgba(0,0,0,0.5)">
-            ${Object.values(AG_STATUS).map(s => '<div style="display:flex;align-items:center;gap:4px;font-size:.62rem;color:'+s.cor+'">'+s.icon+' '+s.txt+'</div>').join('')}
-          </div>
-
         </div>
-
-        <!-- LISTA DE ESPERA -->
-        ${agListaEspera.filter(e => e.status === 'aguardando').length > 0 ? `
-        <div style="margin-top:14px;background:#1a1b22;border:1px solid rgba(245,213,71,0.2);border-radius:14px;padding:14px 16px;box-shadow:inset 2px 2px 8px rgba(0,0,0,0.5)">
-          <div style="font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#F5D547;margin-bottom:10px">⏳ Lista de Espera (${agListaEspera.filter(e=>e.status==='aguardando').length})</div>
-          ${agListaEspera.filter(e => e.status === 'aguardando').map(e => `
-            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)">
-              <div style="flex:1;min-width:0">
-                <div style="font-size:.82rem;font-weight:600;color:var(--color-text-primary)">${e.nome}</div>
-                <div style="font-size:.68rem;color:var(--color-text-muted)">${e.servico||'—'} ${e.veiculo?'· '+e.veiculo:''} ${e.dataPreferencia?'· Pref: '+new Date(e.dataPreferencia+'T12:00:00').toLocaleDateString('pt-BR'):''}</div>
-              </div>
-              <button class="btn btn-sm" style="color:#2BE08C;border-color:rgba(43,224,140,.3);white-space:nowrap" onclick="agEsperaAgendar('${e.id}')">📅 Agendar</button>
-              <button class="btn btn-del btn-sm" onclick="agEsperaRemover('${e.id}')">✕</button>
-            </div>`).join('')}
-        </div>` : ''}
-      </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">
+          ${['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(d=>'<div style="text-align:center;font-size:.65rem;color:var(--color-text-muted);padding:3px 0;font-weight:600">'+d+'</div>').join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
+          ${diasHTML}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">
+          ${Object.entries(AG_STATUS).map(([k,v])=>'<div style="display:flex;align-items:center;gap:4px;font-size:.65rem;color:var(--color-text-muted)"><div style="width:8px;height:8px;border-radius:2px;background:'+v.cor+'"></div>'+v.txt+'</div>').join('')}
+          <div style="display:flex;align-items:center;gap:4px;font-size:.65rem;color:var(--color-text-muted)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(248,113,113,.4)">🔒</div> Bloqueado <span style="font-size:.6rem">(Shift+clique)</span></div>
+        </div>
       </div>
 
-      <!-- PAINEL LATERAL -->
-      <div style="display:flex;flex-direction:column;gap:12px;width:280px;flex-shrink:0">
+      <!-- PAINEL LATERAL: dia selecionado ou edição -->
+      <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:14px;overflow-y:auto;max-height:620px">
+        ${painelHTML}
+      </div>
 
-        <!-- Agendamentos de hoje -->
+      <!-- COLUNA DIREITA: hoje -->
+      <div style="display:flex;flex-direction:column;gap:12px">
         <div class="zl-card" style="padding:14px">
-          <div style="font-family:'Inter';font-size:.85rem;letter-spacing:3px;color:#60a5fa;margin-bottom:10px">📅 HOJE</div>
+          <div style="font-family:'Inter';font-size:.75rem;letter-spacing:3px;color:#60a5fa;margin-bottom:10px">📅 HOJE</div>
           ${hojeListaHTML}
         </div>
-
-        <!-- Detalhe do agendamento selecionado -->
-        ${agModalAberto && agendamentos.find(a => a.id === agModalAberto) ? detalheHTML : '<div style="background:rgba(13,35,71,.4);border:1px dashed var(--color-border);border-radius:12px;padding:24px;text-align:center;color:var(--color-text-muted);font-size:.78rem">Clique num agendamento ou num dia para editar</div>'}
       </div>
 
     </div>
   `;
 
-  // Modais overlay (fora do main para evitar conflitos)
+  // Modais overlay
   let agOverlay = document.getElementById('ag-overlay-container');
   if (!agOverlay) {
     agOverlay = document.createElement('div');
     agOverlay.id = 'ag-overlay-container';
     document.body.appendChild(agOverlay);
   }
-  agOverlay.innerHTML = agDiaSelecionado ? agModalDiaHTML()
-    : agSelecionarClienteData ? agSelecionarClienteHTML()
-    : '';
+  agOverlay.innerHTML = agSelecionarClienteData ? agSelecionarClienteHTML() : '';
 }
-
 
 // ═══════════════════════════════════════════
 // SINO — RESUMO DO DIA
@@ -13376,12 +13375,12 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.1.4
+// splash duplicado removido em v5.5.9.1
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
   const swCode = `
-    const CACHE = 'zlmotos-v5-1-4';
+    const CACHE = 'zlmotos-v5-5-9-1';
     const ASSETS = [
       'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap',
       'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap',
