@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.14</title>
+<title>ZL Motos v5.5.9.15</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3059,7 +3059,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.14</div>
+  <div class="splash-version">v5.5.9.15</div>
 </div>
 
 <!-- APP -->
@@ -3070,7 +3070,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.14</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.15</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -3239,7 +3239,7 @@ async function fazerLogin() {
   btn.textContent = 'Entrando...';
   btn.disabled = true;
   try {
-    await window._firebaseSignIn(window._auth, email, pass);
+    await window._firebaseSignIn(email, pass);
     erro.classList.remove('visivel');
     document.getElementById('login-screen').style.display = 'none';
     const app = document.getElementById('app');
@@ -3265,7 +3265,7 @@ async function fazerLogin() {
 
 async function fazerLogout(timeout) {
   clearInterval(sessionInterval);
-  try { await window._firebaseSignOut(window._auth); } catch(e) {}
+  try { await window._firebaseSignOut(); } catch(e) {}
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   const chatBtn = document.getElementById('zl-chat-btn');
@@ -3373,7 +3373,7 @@ async function salvarSenha() {
   if (ns.length < 6) { err.textContent = 'Senha deve ter ao menos 6 caracteres.'; err.style.display='block'; return; }
   if (ns !== cs) { err.textContent = 'As senhas não coincidem.'; err.style.display='block'; return; }
   try {
-    await window._firebaseUpdatePassword(window._currentUser, ns);
+    await window._firebaseUpdatePassword(ns);
     fecharModal('modal-senha');
     mostrarToast('✓ Senha alterada com sucesso!');
   } catch(e) {
@@ -13686,7 +13686,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.14
+// splash duplicado removido em v5.5.9.15
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
