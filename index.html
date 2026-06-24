@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.6</title>
+<title>ZL Motos v5.5.9.8</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3091,7 +3091,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.6</div>
+  <div class="splash-version">v5.5.9.8</div>
 </div>
 
 <!-- APP -->
@@ -3102,7 +3102,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.6</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.8</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -3533,6 +3533,31 @@ function mecComissao(nome) {
 }
 
 // I12 — Backup manual ─────────────────────────────────────────────
+async function _verificarBackupAuto() {
+  try {
+    const CHAVE = 'zlmotos_ultimo_backup_auto';
+    const ultimo = localStorage.getItem(CHAVE);
+    const agora = Date.now();
+    const UM_DIA = 24 * 60 * 60 * 1000;
+    if (ultimo && (agora - parseInt(ultimo)) < UM_DIA) return; // menos de 24h
+    // Fazer backup automático
+    const payload = {
+      data: new Date().toISOString(),
+      tipo: 'auto',
+      dados: dados,
+      versao: document.title
+    };
+    await window._firestoreSetDoc(
+      window._userDoc('backup_auto_' + new Date().toISOString().slice(0,10)),
+      payload
+    );
+    localStorage.setItem(CHAVE, agora.toString());
+    console.log('ZLMotos: backup automático realizado em', payload.data);
+  } catch(e) {
+    console.warn('ZLMotos: erro no backup automático:', e);
+  }
+}
+
 async function backupExportarJSON() {
   mostrarToast('⏳ Preparando backup...');
   const backup = {
@@ -3901,6 +3926,16 @@ async function confirmarTrocaAno(novoAno) {
 }
 // ─────────────────────────────────────────────────────────────────
 
+function _removerDuplicatas(arr, chave) {
+  const vistas = new Set();
+  return arr.filter(item => {
+    const k = chave(item);
+    if (vistas.has(k)) return false;
+    vistas.add(k);
+    return true;
+  });
+}
+
 function inicializarDadosLocal() {
   for (let m = 0; m < 12; m++) {
     if (!dados[m]) {
@@ -3910,11 +3945,25 @@ function inicializarDadosLocal() {
       dados[m].variaveis.forEach(v => { if(!v.data) v.data=''; if(!v.cat) v.cat='Outros'; if(v.pago===undefined) v.pago=false; });
       dados[m].entradas.forEach(e => { if(!e.data) e.data=''; });
       if(!dados[m].obs) dados[m].obs='';
+      // Remover duplicatas automáticamente
+      const antesE = dados[m].entradas.length;
+      const antesV = dados[m].variaveis.length;
+      dados[m].entradas  = _removerDuplicatas(dados[m].entradas,  e => e.data+e.desc+e.valor+e.hora);
+      dados[m].variaveis = _removerDuplicatas(dados[m].variaveis, v => v.data+v.desc+v.valor+v.hora);
+      if (dados[m].entradas.length < antesE || dados[m].variaveis.length < antesV) {
+        console.log('ZLMotos: duplicatas removidas no mês', m,
+          '— entradas:', antesE, '->', dados[m].entradas.length,
+          '/ saídas:', antesV, '->', dados[m].variaveis.length);
+      }
     }
   }
 }
 
+let _dadosCarregados = false;
+let _ultimoBackupAuto = null;
+
 async function inicializarDados() {
+  _dadosCarregados = false;
   try {
     const chave = chaveStorage();
     const ref = window._userDoc(chave);
@@ -3987,6 +4036,8 @@ async function inicializarDados() {
   await estCarregarEntradas();
   // I13 — salvar cache local para modo offline
   _salvarCacheLocal();
+  _dadosCarregados = true;
+  _verificarBackupAuto();
 }
 
 // ── Listeners em tempo real para todos os dados ──────────────────
@@ -4052,6 +4103,19 @@ function iniciarListenersTempoReal() {
 
 let _saveTimer = null;
 async function salvarDados() {
+  // PROTEÇÃO: nunca salvar se os dados não foram carregados do Firebase
+  if (!_dadosCarregados) {
+    console.warn('ZLMotos: salvarDados() bloqueado — dados ainda não carregados.');
+    return;
+  }
+  // PROTEÇÃO: nunca salvar dados vazios
+  const totalEntradas = Object.values(dados).reduce((s,m) => s + ((m.entradas||[]).length), 0);
+  const totalVariaveis = Object.values(dados).reduce((s,m) => s + ((m.variaveis||[]).length), 0);
+  const totalFixos = Object.values(dados).reduce((s,m) => s + ((m.fixos||[]).length), 0);
+  if (totalEntradas === 0 && totalVariaveis === 0 && totalFixos === 0) {
+    console.warn('ZLMotos: salvarDados() bloqueado — dados parecem vazios.');
+    return;
+  }
   const st = document.getElementById('saveStatus');
   if (st) { st.textContent = '⏳ Salvando...'; st.classList.add('salvando'); st.classList.remove('visible'); }
 
@@ -5188,9 +5252,58 @@ function renderAnual() {
         return html;
       })()}
     </div>
+    <div id="dre-container"></div>
 
   `;
+  renderDRE();
 }
+
+// ═══════════════════════════════════════════
+// DRE SIMPLIFICADO
+// ═══════════════════════════════════════════
+function renderDRE() {
+  const dreEl = document.getElementById('dre-container');
+  if (!dreEl) return;
+  const fmt2 = v => 'R$ ' + parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const num2 = v => parseFloat(String(v||'0').replace(',','.')) || 0;
+  let totalBrutoAno = 0, totalSaidasAno = 0;
+  const catTotais = {};
+  for (let m = 0; m < 12; m++) {
+    if (!dados[m]) continue;
+    const c = calcularMes(m);
+    totalBrutoAno += c.totalBruto;
+    totalSaidasAno += c.totalSaidas;
+    (dados[m].variaveis||[]).forEach(v => {
+      const cat = v.cat || 'Outros';
+      catTotais[cat] = (catTotais[cat]||0) + num2(v.valor);
+    });
+    (dados[m].fixos||[]).forEach(f => {
+      const cat = f.nome || 'Fixo';
+      catTotais[cat] = (catTotais[cat]||0) + num2(f.valor);
+    });
+  }
+  const totalLiquidoAno = totalBrutoAno - totalSaidasAno;
+  const cats = Object.entries(catTotais).sort((a,b) => b[1]-a[1]);
+  dreEl.innerHTML = `
+    <div style="margin-top:20px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px 20px">
+      <div style="font-size:.72rem;letter-spacing:2px;color:var(--color-text-muted);margin-bottom:14px">DRE SIMPLIFICADO · ${new Date().getFullYear()}</div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+          <span style="font-size:.82rem;font-weight:700;color:#34d399">Receita Bruta</span>
+          <span style="font-size:.82rem;font-weight:700;color:#34d399">${fmt2(totalBrutoAno)}</span>
+        </div>
+        ${cats.map(([cat,val]) => `
+        <div style="display:flex;justify-content:space-between;padding:5px 8px;border-radius:6px" onmouseover="this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background='transparent'">
+          <span style="font-size:.78rem;color:var(--color-text-muted)">(-) ${cat}</span>
+          <span style="font-size:.78rem;color:#fca5a5">(${fmt2(val)})</span>
+        </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(255,255,255,.06);margin-top:4px">
+          <span style="font-size:.82rem;font-weight:700;color:var(--color-text-primary)">Resultado Líquido</span>
+          <span style="font-size:.85rem;font-weight:700;color:${totalLiquidoAno>=0?'#34d399':'#fca5a5'}">${fmt2(totalLiquidoAno)}</span>
+        </div>
+      </div>
+    </div>`;
+  }
 
 // ═══════════════════════════════════════════
 // EXPORTAR CSV
@@ -13367,7 +13480,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.6
+// splash duplicado removido em v5.5.9.8
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
