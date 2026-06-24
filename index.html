@@ -14504,6 +14504,47 @@ function mecRenderCard(r, STATUS_LABEL) {
       </div>
 
       ${r.obs?`<div style="font-size:.8rem;color:var(--color-text-muted);padding:4px 0 8px">📝 ${mecEsc(r.obs)}</div>`:''}
+
+      ${(() => {
+        const pecas = r.pecasComprar || [];
+        if (!pecas.length) return '';
+        const pecasId = 'pecas-body-' + (r._id||r.id).replace(/[^a-z0-9]/gi,'');
+        return `
+          <div style="margin-bottom:10px;border:1px solid rgba(245,213,71,.25);border-radius:8px;overflow:hidden">
+            <div onclick="var b=document.getElementById('${pecasId}');var a=document.getElementById('arr-${pecasId}');var open=b.style.display!=='none';b.style.display=open?'none':'flex';a.textContent=open?'▶':'▼';"
+                 style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:rgba(245,213,71,.07);border-bottom:1px solid rgba(245,213,71,.15);cursor:pointer;user-select:none">
+              <div style="display:flex;align-items:center;gap:8px;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#F5D547">
+                🛒 Peças a Comprar
+                <span style="background:rgba(245,213,71,.15);border:1px solid rgba(245,213,71,.3);border-radius:999px;padding:1px 8px;font-size:.62rem;font-weight:700;color:#F5D547">${pecas.length}</span>
+              </div>
+              <span id="arr-${pecasId}" style="font-size:.65rem;color:var(--color-text-muted)">▶</span>
+            </div>
+            <div id="${pecasId}" style="display:none;padding:8px 10px;flex-direction:column;gap:5px">
+              ${pecas.map((p,i) => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--color-elevated);border-radius:6px">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="width:20px;height:20px;border-radius:50%;background:rgba(245,213,71,.12);border:1px solid rgba(245,213,71,.2);display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:#F5D547;flex-shrink:0">${i+1}</span>
+                    <span style="font-size:.85rem;font-weight:600;color:var(--color-text-primary)">${mecEsc(p.desc)}</span>
+                  </div>
+                  <span style="font-family:monospace;font-size:.75rem;background:rgba(245,213,71,.1);border:1px solid rgba(245,213,71,.2);border-radius:999px;padding:2px 9px;color:#F5D547;white-space:nowrap">${p.qtd}x</span>
+                </div>`).join('')}
+              <button onclick="(function(){
+                var pecas=${JSON.stringify(pecas)};
+                var moto='${mecEsc(r.moto)}';
+                var placa='${mecEsc(r.placa)}';
+                var mec='${mecEsc(r.mecanico)}';
+                var txt='🏍️ *'+moto+' ('+placa+')*\\n🔧 Mecânico: '+mec+'\\n🛒 *Peças a Comprar*\\n'+pecas.map(function(p,i){return (i+1)+'. '+p.desc+' — '+p.qtd+'x';}).join('\\n');
+                navigator.clipboard.writeText(txt).then(function(){mostrarToast('📋 Lista copiada!');}).catch(function(){mostrarToast('Erro ao copiar');});
+              })()"
+                style="margin-top:4px;background:none;border:1px solid rgba(245,213,71,.25);border-radius:6px;color:#F5D547;font-family:var(--font-body);font-size:.74rem;font-weight:600;padding:6px 14px;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .15s"
+                onmouseover="this.style.background='rgba(245,213,71,.08)'" onmouseout="this.style.background='none'">
+                📋 Copiar lista de compras
+              </button>
+            </div>
+          </div>
+        `;
+      })()}
+
       ${r.obsDono?`<div style="padding:8px 10px;background:rgba(200,16,46,.06);border-left:2px solid var(--color-primary);border-radius:0 4px 4px 0;font-size:.8rem;color:var(--color-text-secondary);margin-bottom:8px"><strong style="color:var(--color-primary)">Obs. dono:</strong> ${mecEsc(r.obsDono)}</div>`:''}
 
       <div style="font-size:.7rem;color:var(--color-text-muted);margin-bottom:10px">Enviado em ${data}</div>
