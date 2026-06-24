@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.1</title>
+<title>ZL Motos v5.5.9.3</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3091,7 +3091,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.1</div>
+  <div class="splash-version">v5.5.9.3</div>
 </div>
 
 <!-- APP -->
@@ -3102,7 +3102,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.1</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.3</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -4422,130 +4422,121 @@ function renderMes(m) {
         + Novo Lançamento<span class="btn-add-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
       </button>
     </div>
-    <div class="secoes">
+    <div class="secoes" style="display:flex;flex-direction:column;gap:14px">
 
-      <!-- ENTRADAS -->
-      <div class="secao">
+      <!-- EXTRATO UNIFICADO -->
+      <div class="secao" style="grid-column:1/-1">
         <div class="secao-header">
-          <div class="secao-titulo entradas">💵 Entradas</div>
+          <div class="secao-titulo" style="color:#60a5fa">📋 Extrato do Mês</div>
           <div class="secao-header-btns">
-            <button class="btn btn-ordenar btn-sm" onclick="ordenarSalvar(${m},'entradas')">↕ Data</button>
+            <button class="btn btn-ordenar btn-sm" onclick="ordenarSalvar(${m},'entradas');ordenarSalvar(${m},'variaveis')">↕ Data</button>
           </div>
         </div>
         <div class="secao-body">
           ${(function(){
-            const grupos = agruparPorData(entradasOrd);
+            // Juntar entradas e saídas variáveis com tipo
+            const todasEntradas = (mes.entradas||[]).map(function(e){ const o={}; for(var k in e) o[k]=e[k]; o._tipo='entrada'; return o; });
+            const todasSaidas   = (mes.variaveis||[]).map(function(v){ const o={}; for(var k in v) o[k]=v[k]; o._tipo='saida'; return o; });
+            const todos = todasEntradas.concat(todasSaidas).sort(function(a,b){
+              const da = (a.data||'9999')+(a.hora||'00:00');
+              const db = (b.data||'9999')+(b.hora||'00:00');
+              return db.localeCompare(da); // mais recente primeiro
+            });
+
+            if (!todos.length) return '<div class="orc-vazio">Nenhum lançamento registrado.</div>';
+
+            // Agrupar por data
+            const grupos = {};
+            todos.forEach(function(l) {
+              const d = l.data || 'sem-data';
+              if (!grupos[d]) grupos[d] = [];
+              grupos[d].push(l);
+            });
+
             const datas = Object.keys(grupos).sort().reverse();
-            if (!datas.length) return '<div class="orc-vazio">Nenhuma entrada registrada.</div>';
+
             return datas.map(function(d) {
               const itens = grupos[d];
-              const totalDia = itens.reduce(function(s,e){return s+(parseFloat(e.valor)||0);},0);
-              const grpId = 'grp-ent-' + m + '-' + (d||'sd').replace(/-/g,'');
+              const totalE = itens.filter(function(l){return l._tipo==='entrada';}).reduce(function(s,l){return s+num(l.valor);},0);
+              const totalS = itens.filter(function(l){return l._tipo==='saida';}).reduce(function(s,l){return s+num(l.valor);},0);
+              const saldo = totalE - totalS;
+              const grpId = 'grp-ext-' + m + '-' + (d||'sd').replace(/-/g,'');
+
               return '<div style="margin-bottom:8px">'
-                + '<div onclick="toggleGrupo(&quot;' + grpId + '&quot;)" style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);border-radius:8px;cursor:pointer">'
-                + '<div><span style="font-size:.8rem;font-weight:700;color:#34d399">' + fmtDataGrupo(d) + '</span><span style="font-size:.68rem;color:var(--color-text-muted);margin-left:8px">' + itens.length + ' entrada(s)</span></div>'
-                + '<div style="display:flex;align-items:center;gap:10px"><div style="text-align:right"><div style="font-size:.62rem;color:var(--color-text-muted)">Total</div><div style="font-size:.78rem;font-weight:700;color:#34d399">' + fmt(totalDia) + '</div></div><span id="arr-' + grpId + '" style="color:var(--color-text-muted)">▶</span></div>'
+                + '<div onclick="toggleGrupo(&quot;' + grpId + '&quot;)" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;cursor:pointer">'
+                + '<div style="display:flex;align-items:center;gap:10px">'
+                + '<span style="font-size:.8rem;font-weight:700">' + fmtDataGrupo(d) + '</span>'
+                + '<span style="font-size:.65rem;color:var(--color-text-muted)">' + itens.length + ' lançamento(s)</span>'
                 + '</div>'
-                + '<div id="' + grpId + '" style="overflow:hidden;display:none">'
-                + '<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">'
-                + itens.map(function(e) {
-                    const i = mes.entradas.indexOf(e);
-                    const descConf = (e.desc||'sem descrição').replace(/'/g,'&#39;');
-                    return '<div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.12);border-radius:8px;padding:8px 10px">'
+                + '<div style="display:flex;align-items:center;gap:14px">'
+                + '<span style="font-size:.7rem;color:#34d399">↑ ' + fmt(totalE) + '</span>'
+                + '<span style="font-size:.7rem;color:#fca5a5">↓ ' + fmt(totalS) + '</span>'
+                + '<span style="font-size:.72rem;font-weight:700;color:' + (saldo>=0?'#34d399':'#fca5a5') + '">' + (saldo>=0?'+':'') + fmt(saldo) + '</span>'
+                + '<span id="arr-' + grpId + '" style="color:var(--color-text-muted);font-size:.7rem">▶</span>'
+                + '</div>'
+                + '</div>'
+                + '<div id="' + grpId + '" style="display:none;margin-top:4px">'
+                + '<div style="display:flex;flex-direction:column;gap:4px">'
+                + itens.map(function(l) {
+                    const isE = l._tipo === 'entrada';
+                    const cor = isE ? '#34d399' : '#fca5a5';
+                    const bg  = isE ? 'rgba(16,185,129,.06)' : 'rgba(248,113,113,.06)';
+                    const borda = isE ? 'rgba(16,185,129,.15)' : 'rgba(248,113,113,.15)';
+                    const i = isE ? mes.entradas.indexOf(l) : mes.variaveis.indexOf(l);
+                    const descConf = (l.desc||'sem descrição').replace(/'/g,'&#39;');
+                    const fnExcluir = isE ? 'removeEntrada('+m+','+i+')' : 'removeVariavel('+m+','+i+')';
+
+                    return '<div style="background:'+bg+';border:1px solid '+borda+';border-radius:8px;padding:8px 10px">'
+                      // linha 1: badge + data + hora + checkbox(saida) + excluir
                       + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
-                      + '<span style="font-size:.7rem;font-weight:700;color:#34d399">↑</span>'
-                      + '<input type="date" value="' + (e.data||'') + '" style="font-size:.72rem;padding:3px 6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados[' + m + '].entradas[' + i + '].data=this.value;recalcular(' + m + ')"/>'
-                      + '<input type="time" value="' + (e.hora||'') + '" style="font-size:.72rem;padding:3px 6px;width:86px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados[' + m + '].entradas[' + i + '].hora=this.value;recalcular(' + m + ')"/>'
-                      + '<button class="btn btn-del btn-sm" onclick="confirmarExclusao(\'' + descConf + '\',()=>removeEntrada(' + m + ',' + i + '))" style="margin-left:auto">✕</button>'
+                      + '<span style="font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;background:'+cor+'22;color:'+cor+';border:1px solid '+cor+'44;white-space:nowrap">'+(isE?'↑ ENTRADA':'↓ SAÍDA')+'</span>'
+                      + '<input type="date" value="'+(l.data||'')+'" style="font-size:.72rem;padding:3px 6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].data=this.value;recalcular('+m+')"/>'
+                      + '<input type="time" value="'+(l.hora||'')+'" style="font-size:.72rem;padding:3px 6px;width:86px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].hora=this.value;recalcular('+m+')"/>'
+                      + (!isE ? neonChk((l.pago?'checked ':'')+'onchange="dados['+m+'].variaveis['+i+'].pago=this.checked;recalcular('+m+')"') : '')
+                      + '<button class="btn btn-del btn-sm" onclick="confirmarExclusao(\''+descConf+'\',()=>'+fnExcluir+')" style="margin-left:auto">✕</button>'
                       + '</div>'
+                      // linha 2: descrição + valor + categoria/forma
                       + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
-                      + '<input type="text" value="' + (e.desc||'').replace(/"/g,'&quot;') + '" placeholder="Descrição..." style="flex:1;font-size:.8rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados[' + m + '].entradas[' + i + '].desc=this.value"/>'
-                      + '<input type="number" class="valor" value="' + (e.valor||'') + '" placeholder="0,00" min="0" step="0.01" style="width:90px;font-size:.82rem;font-weight:700;color:#34d399;padding:4px 8px;background:var(--color-surface);border:1px solid rgba(16,185,129,.3);border-radius:6px" oninput="dados[' + m + '].entradas[' + i + '].valor=this.value;recalcular(' + m + ')"/>'
+                      + '<input type="text" value="'+(l.desc||'').replace(/"/g,'&quot;')+'" placeholder="Descrição..." style="flex:1;font-size:.8rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].desc=this.value"/>'
+                      + '<input type="number" class="valor" value="'+(l.valor||'')+'" placeholder="0,00" min="0" step="0.01" style="width:90px;font-size:.82rem;font-weight:700;color:'+cor+';padding:4px 8px;background:var(--color-surface);border:1px solid '+cor+'33;border-radius:6px" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].valor=this.value;recalcular('+m+')"/>'
                       + '</div>'
-                      + '<select style="width:100%;font-size:.75rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" onchange="dados[' + m + '].entradas[' + i + '].formaPgto=this.value;recalcular(' + m + ')">'
-                      + '<option value=""' + (!e.formaPgto?' selected':'') + '>— Forma de pagamento —</option>'
-                      + '<option value="Dinheiro"' + (e.formaPgto==='Dinheiro'?' selected':'') + '>💵 Dinheiro</option>'
-                      + '<option value="PIX"' + (e.formaPgto==='PIX'?' selected':'') + '>📱 PIX</option>'
-                      + '<option value="Crédito"' + (e.formaPgto==='Crédito'?' selected':'') + '>💳 Crédito</option>'
-                      + '<option value="Débito"' + (e.formaPgto==='Débito'?' selected':'') + '>💳 Débito</option>'
-                      + '</select>'
+                      // linha 3: select de categoria ou forma de pagamento
+                      + (isE
+                        ? '<select style="width:100%;font-size:.75rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" onchange="dados['+m+'].entradas['+i+'].formaPgto=this.value;recalcular('+m+')">'
+                          + '<option value=""'+(!l.formaPgto?' selected':'')+'>— Forma de pagamento —</option>'
+                          + '<option value="Dinheiro"'+(l.formaPgto==='Dinheiro'?' selected':'')+'>💵 Dinheiro</option>'
+                          + '<option value="PIX"'+(l.formaPgto==='PIX'?' selected':'')+'>📱 PIX</option>'
+                          + '<option value="Crédito"'+(l.formaPgto==='Crédito'?' selected':'')+'>💳 Crédito</option>'
+                          + '<option value="Débito"'+(l.formaPgto==='Débito'?' selected':'')+'>💳 Débito</option>'
+                          + '</select>'
+                        : '<select onchange="dados['+m+'].variaveis['+i+'].cat=this.value;recalcular('+m+')" style="width:100%;font-size:.75rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)">'
+                          + CATEGORIAS.map(function(c){return '<option value="'+c+'"'+(l.cat===c?' selected':'')+'>'+c+'</option>';}).join('')
+                          + '</select>')
                       + '</div>';
                   }).join('')
                 + '</div></div></div>';
-            }).join('') + '<div style="text-align:right;padding:8px 4px;font-size:.72rem;letter-spacing:2px;color:var(--color-text-muted)">TOTAL ENTRADAS <span style="color:var(--verde)" id="total-entradas">' + fmt(calc.totalBruto) + '</span></div>';
+            }).join('')
+            + '<div style="display:flex;justify-content:space-between;padding:10px 4px;border-top:1px solid rgba(255,255,255,.06);margin-top:4px">'
+            + '<span style="font-size:.72rem;letter-spacing:2px;color:var(--color-text-muted)">TOTAL ENTRADAS <span style="color:#34d399">' + fmt(calc.totalBruto) + '</span></span>'
+            + '<span style="font-size:.72rem;letter-spacing:2px;color:var(--color-text-muted)">TOTAL SAÍDAS <span style="color:#fca5a5">' + fmt(calc.totalVar) + '</span></span>'
+            + '<span style="font-size:.72rem;letter-spacing:2px;color:var(--color-text-muted)">RESULTADO <span style="color:' + (calc.totalLiquido>=0?'#34d399':'#fca5a5') + ';font-weight:700">' + fmt(calc.totalLiquido) + '</span></span>'
+            + '</div>';
           })()}
         </div>
       </div>
 
-      <!-- SAÍDAS VARIÁVEIS -->
-      <div class="secao">
-        <div class="secao-header">
-          <div class="secao-titulo saidas-var">🔧 Saídas Variáveis</div>
-          <div class="secao-header-btns">
-            <button class="btn btn-ordenar btn-sm" onclick="ordenarSalvar(${m},'variaveis')">↕ Data</button>
-          </div>
-        </div>
-        <div class="secao-body">
-          <div class="filtro-cat" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px">
-            ${['Todos',...CATEGORIAS].map(function(c){
-              var btnClass = 'filtro-btn' + (filtroCategoria===c?' ativo':'');
-              var excBtn = c!=='Todos' ? '<span onclick="event.stopPropagation();categoriaExcluir(&quot;' + c + '&quot;)" style="font-size:.58rem;color:rgba(255,255,255,.3);cursor:pointer;margin-left:3px" title="Remover">✕</span>' : '';
-              return '<button class="' + btnClass + '" onclick="filtroCategoria=&quot;' + c + '&quot;;renderAll()" style="display:inline-flex;align-items:center;gap:2px">' + c + excBtn + '</button>';
-            }).join('')}
-            <div style="display:inline-flex;gap:4px;align-items:center">
-              <input id="nova-cat-input" type="text" placeholder="Nova categoria..." maxlength="30"
-                onkeydown="if(event.key==='Enter'){categoriaAdicionar(this.value);this.value='';}"
-                style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;padding:5px 10px;font-size:.75rem;outline:none;width:120px"/>
-              <button onclick="categoriaAdicionar(document.getElementById('nova-cat-input').value);document.getElementById('nova-cat-input').value=''" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399;border-radius:8px;padding:5px 10px;font-size:.75rem;cursor:pointer;font-weight:700">+ Add</button>
-            </div>
-          </div>
-          ${(function(){
-            var aPagar = varOrdenadas.filter(function(v){return !v.pago;});
-            var pagas = varOrdenadas.filter(function(v){return v.pago;});
-            function renderGrupoVar(arr, pago) {
-              var grupos = agruparPorData(arr);
-              var datas = Object.keys(grupos).sort().reverse();
-              if (!datas.length) return '<div style="color:var(--color-text-muted);font-size:.78rem;padding:8px 0">Nenhum lançamento.</div>';
-              return datas.map(function(d) {
-                var itens = grupos[d];
-                var totalDia = itens.reduce(function(s,v){return s+(parseFloat(v.valor)||0);},0);
-                var grpId = 'grp-var-' + m + '-' + (pago?'p':'a') + '-' + (d||'sd').replace(/-/g,'');
-                return '<div style="margin-bottom:6px">'
-                  + '<div onclick="toggleGrupo(&quot;' + grpId + '&quot;)" style="display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:8px;cursor:pointer">'
-                  + '<span style="font-size:.78rem;font-weight:700;color:#fca5a5">' + fmtDataGrupo(d) + '</span>'
-                  + '<span style="font-size:.75rem;color:var(--color-text-muted)">' + itens.length + ' item(s) &nbsp;|&nbsp; <b style="color:#fca5a5">' + fmt(totalDia) + '</b> &nbsp;<span id="arr-' + grpId + '">▶</span></span>'
-                  + '</div>'
-                  + '<div id="' + grpId + '" style="display:none">'
-                  + '<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">'
-                  + itens.map(function(v) {
-                      var i = mes.variaveis.indexOf(v);
-                      var descConf = (v.desc||'sem descrição').replace(/'/g,'&#39;');
-                      var catVal = v.cat || 'Outros';
-                      var optsHtml = CATEGORIAS.map(function(c){return '<option value="' + c + '"' + (catVal===c?' selected':'') + '>' + c + '</option>';}).join('');
-                      return '<div style="background:rgba(248,113,113,.05);border:1px solid rgba(248,113,113,.12);border-radius:8px;padding:8px 10px;opacity:' + (pago?'.55':'1') + '">'
-                        + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
-                        + '<span style="font-size:.7rem;font-weight:700;color:#fca5a5">↓</span>'
-                        + '<input type="date" value="' + (v.data||'') + '" style="font-size:.72rem;padding:3px 6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados[' + m + '].variaveis[' + i + '].data=this.value;recalcular(' + m + ')"/>'
-                        + '<input type="time" value="' + (v.hora||'') + '" style="font-size:.72rem;padding:3px 6px;width:86px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados[' + m + '].variaveis[' + i + '].hora=this.value;recalcular(' + m + ')"/>'
-                        + neonChk((v.pago?'checked ':'') + 'onchange="dados[' + m + '].variaveis[' + i + '].pago=this.checked;recalcular(' + m + ')"')
-                        + '<button class="btn btn-del btn-sm" onclick="confirmarExclusao(\'' + descConf + '\',()=>removeVariavel(' + m + ',' + i + '))" style="margin-left:auto">✕</button>'
-                        + '</div>'
-                        + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
-                        + '<input type="text" value="' + (v.desc||'').replace(/"/g,'&quot;') + '" placeholder="Descrição..." style="flex:1;font-size:.8rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados[' + m + '].variaveis[' + i + '].desc=this.value"/>'
-                        + '<input type="number" class="valor valor-vermelho" value="' + (v.valor||'') + '" placeholder="0,00" min="0" step="0.01" style="width:90px;font-size:.82rem;font-weight:700;color:#fca5a5;padding:4px 8px;background:var(--color-surface);border:1px solid rgba(248,113,113,.3);border-radius:6px" oninput="dados[' + m + '].variaveis[' + i + '].valor=this.value;recalcular(' + m + ')"/>'
-                        + '</div>'
-                        + '<select onchange="dados[' + m + '].variaveis[' + i + '].cat=this.value;recalcular(' + m + ')" style="width:100%;font-size:.75rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)">' + optsHtml + '</select>'
-                        + '</div>';
-                    }).join('')
-                  + '</div></div></div>';
-              }).join('');
-            }
-            return '<div style="font-size:.72rem;letter-spacing:2px;color:#fca5a5;margin-bottom:6px;font-weight:700">⏳ A PAGAR</div>'
-              + renderGrupoVar(aPagar, false)
-              + '<div style="font-size:.72rem;letter-spacing:2px;color:#34d399;margin:10px 0 6px;font-weight:700">✅ PAGAS</div>'
-              + renderGrupoVar(pagas, true)
-              + '<div style="text-align:right;padding:8px 4px;font-size:.72rem;letter-spacing:2px;color:var(--color-text-muted)">TOTAL PAGO' + (filtroCategoria!=='Todos'?' (filtrado)':'') + ' <span style="color:#fca5a5" id="total-variaveis">' + fmt(varOrdenadas.filter(function(v){return v.pago;}).reduce(function(s,v){return s+num(v.valor);},0)) + '</span></div>';
-          })()}
+      <!-- FILTRO CATEGORIAS (saídas variáveis) -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 2px">
+        ${['Todos',...CATEGORIAS].map(function(c){
+          var btnClass = 'filtro-btn' + (filtroCategoria===c?' ativo':'');
+          var excBtn = c!=='Todos' ? '<span onclick="event.stopPropagation();categoriaExcluir(&quot;' + c + '&quot;)" style="font-size:.58rem;color:rgba(255,255,255,.3);cursor:pointer;margin-left:3px" title="Remover">✕</span>' : '';
+          return '<button class="' + btnClass + '" onclick="filtroCategoria=&quot;' + c + '&quot;;renderAll()" style="display:inline-flex;align-items:center;gap:2px">' + c + excBtn + '</button>';
+        }).join('')}
+        <div style="display:inline-flex;gap:4px;align-items:center">
+          <input id="nova-cat-input" type="text" placeholder="Nova categoria..." maxlength="30"
+            onkeydown="if(event.key==='Enter'){categoriaAdicionar(this.value);this.value='';}"
+            style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;padding:5px 10px;font-size:.75rem;outline:none;width:120px"/>
+          <button onclick="categoriaAdicionar(document.getElementById('nova-cat-input').value);document.getElementById('nova-cat-input').value=''" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399;border-radius:8px;padding:5px 10px;font-size:.75rem;cursor:pointer;font-weight:700">+ Add</button>
         </div>
       </div>
 
@@ -4555,15 +4546,16 @@ function renderMes(m) {
           <div class="secao-titulo saidas-fixas">🔒 Saídas Fixas</div>
           <div class="secao-header-btns">
             <button class="btn btn-ordenar btn-sm" onclick="ordenarSalvar(${m},'fixos')">↕ Data</button>
+            <button class="btn btn-add" onclick="addFixo(${m})">+ Adicionar<span class="btn-add-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></button>
           </div>
         </div>
         <div class="secao-body">
           ${(function(){
             var aPagar = fixosOrd.filter(function(f){return !f.pago;});
-            var pagas = fixosOrd.filter(function(f){return f.pago;});
+            var pagas  = fixosOrd.filter(function(f){return f.pago;});
             function renderGrupoFixo(arr, pago) {
               var grupos = agruparPorData(arr);
-              var datas = Object.keys(grupos).sort().reverse();
+              var datas  = Object.keys(grupos).sort().reverse();
               if (!datas.length) return '<div style="color:var(--color-text-muted);font-size:.78rem;padding:8px 0">Nenhum lançamento.</div>';
               return datas.map(function(d) {
                 var itens = grupos[d];
@@ -13375,7 +13367,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.1
+// splash duplicado removido em v5.5.9.3
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
