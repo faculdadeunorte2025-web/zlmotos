@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.16</title>
+<title>ZL Motos v5.5.9.17</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3148,7 +3148,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.16</div>
+  <div class="splash-version">v5.5.9.17</div>
 </div>
 
 <!-- APP -->
@@ -3159,7 +3159,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.16</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.17</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -3499,7 +3499,8 @@ let CATEGORIAS = ['Peça','Serviço','Imposto','Combustível','Funcionário','Ou
 let metaMensal = 0; // C09
 let mecanicosCadastrados = []; // C02
 let osFiltroMecanico = '';    // C02
-let fornecedores = [];         // C10
+let fornecedores = [];
+let contasPagar = []; // {id, nome, valor, vencimento, recorrencia, status, categoria}         // C10
 let estEntradas = [];          // C07 — histórico de entradas de estoque
 
 let dados = {};
@@ -4139,6 +4140,9 @@ async function inicializarDados() {
   _dadosCarregados = true;
   _verificarBackupAuto();
   _verificarConexao();
+  await carregarContasPagar();
+  setTimeout(contasPagarVerificarNotif, 8000);
+  setInterval(contasPagarVerificarNotif, 60 * 60 * 1000); // verificar a cada hora
   // Solicitar permissão de notificação após 5 segundos
   setTimeout(async () => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -5733,6 +5737,7 @@ function renderAll() {
   else if (abaAtiva===21) renderContador();
   else if (abaAtiva===22) renderFilaMotos();
   else if (abaAtiva===23) renderAreaMecanico();
+  else if (abaAtiva===24) renderContasPagar();
   else if (abaAtiva===99) renderBuscaGlobal();
   else renderMes(abaAtiva);
 }
@@ -13629,6 +13634,234 @@ function renderAgendamentos() {
 // ═══════════════════════════════════════════
 let sinoAberto = false;
 
+// ═══════════════════════════════════════════
+// CONTAS A PAGAR
+// ═══════════════════════════════════════════
+
+function contasPagarBadge() {
+  const hoje = new Date();
+  const em2dias = new Date(); em2dias.setDate(hoje.getDate() + 2);
+  const hojeStr = hoje.toISOString().split('T')[0];
+  const em2Str  = em2dias.toISOString().split('T')[0];
+  return contasPagar.filter(c => {
+    if (c.status === 'pago') return false;
+    return c.vencimento <= em2Str;
+  }).length;
+}
+
+async function salvarContasPagar() {
+  try {
+    const uid = window._auth.currentUser ? window._auth.currentUser.uid : null;
+    if (!uid) return;
+    await window._firestoreSetDoc(window._userDoc('contas_pagar'), { lista: contasPagar, atualizadoEm: new Date().toISOString() });
+  } catch(e) { console.warn('Erro ao salvar contas:', e); }
+}
+
+async function carregarContasPagar() {
+  try {
+    const snap = await window._firestoreGetDoc(window._userDoc('contas_pagar'));
+    if (snap.exists()) contasPagar = snap.data().lista || [];
+    else contasPagar = [];
+  } catch(e) { contasPagar = []; }
+}
+
+function contasPagarNovaId() {
+  return 'cp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+}
+
+function contasPagarAdicionar() {
+  const modal = document.createElement('div');
+  modal.id = 'modal-nova-conta';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.innerHTML = `<div onclick="event.stopPropagation()" style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:16px;padding:24px;width:100%;max-width:420px">
+    <div style="font-size:.8rem;letter-spacing:2px;color:#60a5fa;margin-bottom:16px">💳 NOVA CONTA A PAGAR</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="orc-field"><label>📝 Nome da Conta *</label><input id="cp-nome" type="text" placeholder="Ex: Aluguel, Energia, Internet..."/></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="orc-field"><label>💰 Valor (R$)</label><input id="cp-valor" type="number" min="0" step="0.01" placeholder="0,00"/></div>
+        <div class="orc-field"><label>📅 Vencimento *</label><input id="cp-venc" type="date"/></div>
+      </div>
+      <div class="orc-field"><label>🔁 Recorrência</label>
+        <select id="cp-rec" style="background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-text-primary);border-radius:8px;padding:8px 10px;width:100%">
+          <option value="unica">Única</option>
+          <option value="mensal">Mensal</option>
+          <option value="semanal">Semanal</option>
+          <option value="anual">Anual</option>
+        </select>
+      </div>
+      <div class="orc-field"><label>🏷️ Categoria</label>
+        <select id="cp-cat" style="background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-text-primary);border-radius:8px;padding:8px 10px;width:100%">
+          <option value="Fixo">Fixo</option>
+          <option value="Imposto">Imposto</option>
+          <option value="Fornecedor">Fornecedor</option>
+          <option value="Serviço">Serviço</option>
+          <option value="Outros">Outros</option>
+        </select>
+      </div>
+      <div class="orc-field"><label>📝 Obs</label><input id="cp-obs" type="text" placeholder="Observações..."/></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button onclick="document.getElementById('modal-nova-conta').remove()" style="flex:1;padding:10px;background:transparent;border:1px solid var(--color-border);color:var(--color-text-muted);border-radius:8px;cursor:pointer">Cancelar</button>
+      <button onclick="contasPagarSalvarNova()" style="flex:2;padding:10px;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.4);color:#60a5fa;border-radius:8px;cursor:pointer;font-weight:700">✓ Salvar</button>
+    </div>
+  </div>`;
+  modal.onclick = () => modal.remove();
+  document.body.appendChild(modal);
+  setTimeout(() => document.getElementById('cp-nome')?.focus(), 50);
+}
+
+function contasPagarSalvarNova() {
+  const nome  = document.getElementById('cp-nome')?.value?.trim();
+  const valor = document.getElementById('cp-valor')?.value || '';
+  const venc  = document.getElementById('cp-venc')?.value;
+  const rec   = document.getElementById('cp-rec')?.value || 'unica';
+  const cat   = document.getElementById('cp-cat')?.value || 'Outros';
+  const obs   = document.getElementById('cp-obs')?.value || '';
+  if (!nome) { mostrarErro('Informe o nome da conta.'); return; }
+  if (!venc) { mostrarErro('Informe a data de vencimento.'); return; }
+  contasPagar.push({ id: contasPagarNovaId(), nome, valor, vencimento: venc, recorrencia: rec, categoria: cat, obs, status: 'pendente', criadoEm: new Date().toISOString() });
+  salvarContasPagar();
+  document.getElementById('modal-nova-conta')?.remove();
+  renderContasPagar();
+  mostrarToast('✓ Conta adicionada!');
+}
+
+function contasPagarMarcarPago(id) {
+  const c = contasPagar.find(x => x.id === id);
+  if (!c) return;
+  c.status = 'pago';
+  c.pagoEm = new Date().toISOString();
+  // Se recorrente, criar próxima
+  if (c.recorrencia !== 'unica') {
+    const prox = new Date(c.vencimento + 'T12:00:00');
+    if (c.recorrencia === 'mensal') prox.setMonth(prox.getMonth() + 1);
+    else if (c.recorrencia === 'semanal') prox.setDate(prox.getDate() + 7);
+    else if (c.recorrencia === 'anual') prox.setFullYear(prox.getFullYear() + 1);
+    contasPagar.push({
+      ...c,
+      id: contasPagarNovaId(),
+      status: 'pendente',
+      vencimento: prox.toISOString().split('T')[0],
+      pagoEm: undefined,
+      criadoEm: new Date().toISOString()
+    });
+  }
+  salvarContasPagar();
+  renderContasPagar();
+  renderSidebar();
+  mostrarToast('✓ Conta marcada como paga!');
+}
+
+function contasPagarExcluir(id) {
+  const c = contasPagar.find(x => x.id === id);
+  if (!c) return;
+  confirmarExclusao(c.nome, () => {
+    contasPagar = contasPagar.filter(x => x.id !== id);
+    salvarContasPagar();
+    renderContasPagar();
+    renderSidebar();
+  });
+}
+
+function renderContasPagar() {
+  const main = document.getElementById('mainContent');
+  const hoje = new Date();
+  const hojeStr = hoje.toISOString().split('T')[0];
+  const em2 = new Date(); em2.setDate(hoje.getDate() + 2);
+  const em2Str = em2.toISOString().split('T')[0];
+  const fmt2 = v => 'R$ ' + parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  const pendentes = contasPagar.filter(c => c.status !== 'pago').sort((a,b) => a.vencimento.localeCompare(b.vencimento));
+  const pagas     = contasPagar.filter(c => c.status === 'pago').sort((a,b) => (b.pagoEm||'').localeCompare(a.pagoEm||'')).slice(0,10);
+
+  function statusInfo(c) {
+    if (c.vencimento < hojeStr) return { cor:'#ef4444', bg:'rgba(239,68,68,.08)', borda:'rgba(239,68,68,.2)', label:'VENCIDA', icon:'🔴' };
+    if (c.vencimento <= em2Str) return { cor:'#f59e0b', bg:'rgba(245,158,11,.08)', borda:'rgba(245,158,11,.2)', label:'VENCE EM BREVE', icon:'🟡' };
+    return { cor:'#60a5fa', bg:'rgba(96,165,250,.06)', borda:'rgba(96,165,250,.15)', label:'PENDENTE', icon:'📋' };
+  }
+
+  const totalPendente = pendentes.reduce((s,c) => s + (parseFloat(c.valor)||0), 0);
+
+  main.innerHTML = `
+    <div class="toolbar">
+      <span style="font-size:1.1rem;font-weight:700;letter-spacing:2px">💳 Contas a Pagar</span>
+      <div class="toolbar-right">
+        <button class="btn btn-add" onclick="contasPagarAdicionar()">+ Nova Conta<span class="btn-add-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
+      <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);border-radius:10px;padding:14px">
+        <div style="font-size:1.3rem;font-weight:700;color:#ef4444">${pendentes.filter(c=>c.vencimento<hojeStr).length}</div>
+        <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">Vencidas</div>
+      </div>
+      <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15);border-radius:10px;padding:14px">
+        <div style="font-size:1.3rem;font-weight:700;color:#f59e0b">${pendentes.filter(c=>c.vencimento>=hojeStr&&c.vencimento<=em2Str).length}</div>
+        <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">Vencem em 2 dias</div>
+      </div>
+      <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.15);border-radius:10px;padding:14px">
+        <div style="font-size:1.3rem;font-weight:700;color:#60a5fa">${fmt2(totalPendente)}</div>
+        <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">Total pendente</div>
+      </div>
+    </div>
+
+    ${pendentes.length === 0 ? '<div style="text-align:center;padding:40px;color:var(--color-text-muted);border:1px dashed rgba(255,255,255,.1);border-radius:12px">Nenhuma conta pendente</div>' : ''}
+
+    ${pendentes.map(c => {
+      const s = statusInfo(c);
+      const diasStr = c.vencimento < hojeStr
+        ? 'Venceu em ' + new Date(c.vencimento+'T12:00:00').toLocaleDateString('pt-BR')
+        : c.vencimento === hojeStr ? 'Vence hoje!'
+        : 'Vence em ' + new Date(c.vencimento+'T12:00:00').toLocaleDateString('pt-BR');
+      return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:${s.bg};border:1px solid ${s.borda};border-radius:12px;margin-bottom:8px">
+        <div style="font-size:1.2rem">${s.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <span style="font-size:.88rem;font-weight:700">${c.nome}</span>
+            <span style="font-size:.6rem;padding:1px 7px;border-radius:4px;background:${s.cor}22;color:${s.cor};border:1px solid ${s.cor}44">${s.label}</span>
+            <span style="font-size:.6rem;color:var(--color-text-muted)">${c.recorrencia !== 'unica' ? '🔁 ' + c.recorrencia : ''}</span>
+          </div>
+          <div style="font-size:.72rem;color:var(--color-text-muted)">${diasStr} · ${c.categoria}${c.obs?' · '+c.obs:''}</div>
+        </div>
+        <div style="text-align:right;margin-right:8px">
+          <div style="font-size:.9rem;font-weight:700;color:${s.cor}">${c.valor ? fmt2(c.valor) : '—'}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="contasPagarMarcarPago('${c.id}')" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399;border-radius:8px;padding:6px 12px;font-size:.75rem;cursor:pointer;font-weight:700">✓ Pagar</button>
+          <button onclick="contasPagarExcluir('${c.id}')" style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);color:#fca5a5;border-radius:8px;padding:6px 10px;font-size:.75rem;cursor:pointer">✕</button>
+        </div>
+      </div>`;
+    }).join('')}
+
+    ${pagas.length > 0 ? `
+    <div style="margin-top:20px">
+      <div style="font-size:.7rem;letter-spacing:2px;color:var(--color-text-muted);margin-bottom:10px">✅ PAGAS RECENTEMENTE</div>
+      ${pagas.map(c => `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:rgba(52,211,153,.04);border:1px solid rgba(52,211,153,.1);border-radius:10px;margin-bottom:6px;opacity:.6">
+          <span style="font-size:.8rem;color:#34d399">✓</span>
+          <span style="flex:1;font-size:.82rem">${c.nome}</span>
+          <span style="font-size:.72rem;color:var(--color-text-muted)">${c.pagoEm ? 'Pago em ' + new Date(c.pagoEm).toLocaleDateString('pt-BR') : ''}</span>
+          <span style="font-size:.82rem;font-weight:700;color:#34d399">${c.valor ? fmt2(c.valor) : '—'}</span>
+          <button onclick="contasPagarExcluir('${c.id}')" style="background:transparent;border:none;color:var(--color-text-muted);cursor:pointer;font-size:.8rem">✕</button>
+        </div>`).join('')}
+    </div>` : ''}
+  `;
+}
+
+function contasPagarVerificarNotif() {
+  const badge = contasPagarBadge();
+  if (badge === 0) return;
+  const hoje = new Date().toISOString().split('T')[0];
+  const em2  = new Date(); em2.setDate(em2.getDate()+2);
+  const em2Str = em2.toISOString().split('T')[0];
+  const urgentes = contasPagar.filter(c => c.status !== 'pago' && c.vencimento <= em2Str);
+  urgentes.forEach(c => {
+    const label = c.vencimento < hoje ? 'VENCIDA' : c.vencimento === hoje ? 'vence HOJE' : 'vence em 2 dias';
+    notifEnviar('⚠ Conta a pagar — ZL Motos', c.nome + ' ' + label + (c.valor?' · R$ '+parseFloat(c.valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):''), { tag: 'cp-'+c.id, onClick: () => sbIr(24) });
+  });
+  if (urgentes.length > 0) mostrarToast('⚠ ' + urgentes.length + ' conta(s) vencendo em breve!', 6000);
+}
+
 function sinoToggle() { sinoAberto ? sinoFechar() : sinoAbrir(); }
 function sinoFechar() {
   sinoAberto = false;
@@ -13775,7 +14008,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.16
+// splash duplicado removido em v5.5.9.17
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -14504,47 +14737,6 @@ function mecRenderCard(r, STATUS_LABEL) {
       </div>
 
       ${r.obs?`<div style="font-size:.8rem;color:var(--color-text-muted);padding:4px 0 8px">📝 ${mecEsc(r.obs)}</div>`:''}
-
-      ${(() => {
-        const pecas = r.pecasComprar || [];
-        if (!pecas.length) return '';
-        const pecasId = 'pecas-body-' + (r._id||r.id).replace(/[^a-z0-9]/gi,'');
-        return `
-          <div style="margin-bottom:10px;border:1px solid rgba(245,213,71,.25);border-radius:8px;overflow:hidden">
-            <div onclick="var b=document.getElementById('${pecasId}');var a=document.getElementById('arr-${pecasId}');var open=b.style.display!=='none';b.style.display=open?'none':'flex';a.textContent=open?'▶':'▼';"
-                 style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:rgba(245,213,71,.07);border-bottom:1px solid rgba(245,213,71,.15);cursor:pointer;user-select:none">
-              <div style="display:flex;align-items:center;gap:8px;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#F5D547">
-                🛒 Peças a Comprar
-                <span style="background:rgba(245,213,71,.15);border:1px solid rgba(245,213,71,.3);border-radius:999px;padding:1px 8px;font-size:.62rem;font-weight:700;color:#F5D547">${pecas.length}</span>
-              </div>
-              <span id="arr-${pecasId}" style="font-size:.65rem;color:var(--color-text-muted)">▶</span>
-            </div>
-            <div id="${pecasId}" style="display:none;padding:8px 10px;flex-direction:column;gap:5px">
-              ${pecas.map((p,i) => `
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--color-elevated);border-radius:6px">
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <span style="width:20px;height:20px;border-radius:50%;background:rgba(245,213,71,.12);border:1px solid rgba(245,213,71,.2);display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:#F5D547;flex-shrink:0">${i+1}</span>
-                    <span style="font-size:.85rem;font-weight:600;color:var(--color-text-primary)">${mecEsc(p.desc)}</span>
-                  </div>
-                  <span style="font-family:monospace;font-size:.75rem;background:rgba(245,213,71,.1);border:1px solid rgba(245,213,71,.2);border-radius:999px;padding:2px 9px;color:#F5D547;white-space:nowrap">${p.qtd}x</span>
-                </div>`).join('')}
-              <button onclick="(function(){
-                var pecas=${JSON.stringify(pecas)};
-                var moto='${mecEsc(r.moto)}';
-                var placa='${mecEsc(r.placa)}';
-                var mec='${mecEsc(r.mecanico)}';
-                var txt='🏍️ *'+moto+' ('+placa+')*\\n🔧 Mecânico: '+mec+'\\n🛒 *Peças a Comprar*\\n'+pecas.map(function(p,i){return (i+1)+'. '+p.desc+' — '+p.qtd+'x';}).join('\\n');
-                navigator.clipboard.writeText(txt).then(function(){mostrarToast('📋 Lista copiada!');}).catch(function(){mostrarToast('Erro ao copiar');});
-              })()"
-                style="margin-top:4px;background:none;border:1px solid rgba(245,213,71,.25);border-radius:6px;color:#F5D547;font-family:var(--font-body);font-size:.74rem;font-weight:600;padding:6px 14px;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .15s"
-                onmouseover="this.style.background='rgba(245,213,71,.08)'" onmouseout="this.style.background='none'">
-                📋 Copiar lista de compras
-              </button>
-            </div>
-          </div>
-        `;
-      })()}
-
       ${r.obsDono?`<div style="padding:8px 10px;background:rgba(200,16,46,.06);border-left:2px solid var(--color-primary);border-radius:0 4px 4px 0;font-size:.8rem;color:var(--color-text-secondary);margin-bottom:8px"><strong style="color:var(--color-primary)">Obs. dono:</strong> ${mecEsc(r.obsDono)}</div>`:''}
 
       <div style="font-size:.7rem;color:var(--color-text-muted);margin-bottom:10px">Enviado em ${data}</div>
