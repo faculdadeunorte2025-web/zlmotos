@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.17</title>
+<title>ZL Motos v5.5.9.18</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3148,7 +3148,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.17</div>
+  <div class="splash-version">v5.5.9.18</div>
 </div>
 
 <!-- APP -->
@@ -3159,7 +3159,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.17</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.18</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -4702,6 +4702,13 @@ function renderMes(m) {
                           + '</select>'
                         : '<select onchange="dados['+m+'].variaveis['+i+'].cat=this.value;recalcular('+m+')" style="width:100%;font-size:.75rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)">'
                           + CATEGORIAS.map(function(c){return '<option value="'+c+'"'+(l.cat===c?' selected':'')+'>'+c+'</option>';}).join('')
+                          + '</select>'
+                          + '<select onchange="dados[\'+m+\'].variaveis[\'+i+\'].formaPgto=this.value;recalcular(\'+m+\')" style="width:100%;font-size:.75rem;padding:4px 8px;margin-top:4px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)">'
+                          + '<option value=""'+(  !l.formaPgto?' selected':'')+'>— Forma de pagamento —</option>'
+                          + '<option value="Dinheiro"'+(l.formaPgto==='Dinheiro'?' selected':'')+'>💵 Dinheiro</option>'
+                          + '<option value="PIX"'+(l.formaPgto==='PIX'?' selected':'')+'>📱 PIX</option>'
+                          + '<option value="Crédito"'+(l.formaPgto==='Crédito'?' selected':'')+'>💳 Crédito</option>'
+                          + '<option value="Débito"'+(l.formaPgto==='Débito'?' selected':'')+'>💳 Débito</option>'
                           + '</select>')
                       + '</div>';
                   }).join('')
@@ -14011,7 +14018,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.17
+// splash duplicado removido em v5.5.9.18
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
