@@ -4448,6 +4448,9 @@ function renderSidebar() {
 
   html += '<div class="sb-item' + (abaAtiva===23?' ativo':'') + '" onclick="sbIr(23)" style="' + (mecRascunhosPendentes>0?'color:var(--color-primary)':'') + '">'
     + '<span class="sb-icon">🔧</span><span class="sb-label" style="display:flex;align-items:center;width:100%">Área do Mecânico' + badgeMec + '</span></div>';
+  const _badgeCP = contasPagarBadge();
+  html += '<div class="sb-item' + (abaAtiva===24?' ativo':'') + '" onclick="sbIr(24)" style="' + (_badgeCP>0?'animation:pulse-red 1.5s infinite':'') + '">'
+    + '<span class="sb-icon">💳</span><span class="sb-label" style="display:flex;align-items:center;width:100%">Contas a Pagar' + (_badgeCP>0?'<span style="margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:.65rem;font-weight:700">' + _badgeCP + '</span>':'') + '</span></div>';
 
   sb.innerHTML = html;
 }
