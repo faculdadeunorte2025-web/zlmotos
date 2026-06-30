@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.20</title>
+<title>ZL Motos v5.5.9.21</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -1769,6 +1769,7 @@ main { flex: 1; padding: 24px 28px; }
 
 /* ═══ SEÇÕES ═══ */
 .secoes { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @keyframes pulse-red { 0%,100%{background:transparent} 50%{background:rgba(239,68,68,.15)} }
 .secao {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -3091,7 +3092,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.20</div>
+  <div class="splash-version">v5.5.9.21</div>
 </div>
 
 <!-- APP -->
@@ -3102,7 +3103,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.20</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.21</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -4388,9 +4389,8 @@ function renderSidebar() {
 
   html += '<div class="sb-item' + (abaAtiva===23?' ativo':'') + '" onclick="sbIr(23)" style="' + (mecRascunhosPendentes>0?'color:var(--color-primary)':'') + '">'
     + '<span class="sb-icon">🔧</span><span class="sb-label" style="display:flex;align-items:center;width:100%">Área do Mecânico' + badgeMec + '</span></div>';
-  const _badgeCP = contasPagarBadge();
-  html += '<div class="sb-item' + (abaAtiva===24?' ativo':'') + '" onclick="sbIr(24)" style="' + (_badgeCP>0?'animation:pulse-red 1.5s infinite':'') + '">'
-    + '<span class="sb-icon">💳</span><span class="sb-label" style="display:flex;align-items:center;width:100%">Contas a Pagar' + (_badgeCP>0?'<span style="margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:.65rem;font-weight:700">' + _badgeCP + '</span>':'') + '</span></div>';
+  const _bCP = contasPagarBadge();
+  html += '<div class="sb-item' + (abaAtiva===24?' ativo':'') + '" onclick="sbIr(24)" style="' + (_bCP>0?'animation:pulse-red 1.5s infinite':'') + '"><span class="sb-icon">💳</span><span class="sb-label" style="display:flex;align-items:center;width:100%">Contas a Pagar' + (_bCP>0?'<span style="margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:.65rem;font-weight:700">' + _bCP + '</span>':'') + '</span></div>';
 
   sb.innerHTML = html;
 }
@@ -4492,6 +4492,7 @@ function renderMes(m) {
       <div class="toolbar-right">
         <span class="save-status" id="saveStatus">✓ SALVO</span>
         <button class="btn btn-duplic" onclick="duplicarFixosMesAnterior(${m})">📋 Copiar Fixos Mês Ant.</button>
+        <button class="btn btn-export" onclick="relatorioCategoriaAbrir(${m})">📊 Relatório por Categoria</button>
         <button class="btn btn-export" onclick="exportarCSV(${m})">📥 CSV</button>
       </div>
     </div>
@@ -4643,13 +4644,6 @@ function renderMes(m) {
                         : '<select onchange="dados['+m+'].variaveis['+i+'].cat=this.value;recalcular('+m+')" style="width:100%;font-size:.75rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)">'
                           + CATEGORIAS.map(function(c){return '<option value="'+c+'"'+(l.cat===c?' selected':'')+'>'+c+'</option>';}).join('')
                           + '</select>')
-                          + '<select onchange="dados['+m+'].variaveis['+i+'].formaPgto=this.value;recalcular('+m+')" style="width:100%;font-size:.75rem;padding:4px 8px;margin-top:4px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)">'
-                          + '<option value=""'+(!l.formaPgto?' selected':'')+'>— Forma de pagamento —</option>'
-                          + '<option value="Dinheiro"'+(l.formaPgto==='Dinheiro'?' selected':'')+'>💵 Dinheiro</option>'
-                          + '<option value="PIX"'+(l.formaPgto==='PIX'?' selected':'')+'>📱 PIX</option>'
-                          + '<option value="Crédito"'+(l.formaPgto==='Crédito'?' selected':'')+'>💳 Crédito</option>'
-                          + '<option value="Débito"'+(l.formaPgto==='Débito'?' selected':'')+'>💳 Débito</option>'
-                          + '</select>'
                       + '</div>';
                   }).join('')
                 + '</div></div></div>';
@@ -13399,46 +13393,62 @@ function renderAgendamentos() {
     const dataFmt = String(d).padStart(2,'0') + '/' + String(m).padStart(2,'0') + '/' + y;
     const agsD = agendamentos.filter(a => a.data === agDiaSelecionado).sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
 
-    const agSemHora = agsD.filter(function(a){ return !a.hora; });
-    const agSemHoraHTML = agSemHora.map(function(ag) {
+    const agSemHora = agsD.filter(a => !a.hora);
+    const agSemHoraHTML = agSemHora.map(ag => {
       const s = AG_STATUS[ag.status] || AG_STATUS['agendado'];
-      return '<div style="display:flex;gap:8px;margin-bottom:4px">'
-        + '<div style="font-size:.7rem;color:var(--color-text-muted);width:38px;padding-top:8px;text-align:right">sem hora</div>'
-        + '<div style="width:8px;height:8px;border-radius:50%;background:' + s.cor + ';margin-top:10px;flex-shrink:0;margin-left:4px"></div>'
-        + '<div style="flex:1;padding-bottom:8px;margin-left:8px">'
-        + '<div onclick="agModalAberto=\'' + ag.id + '\';agDiaSelecionado=null;renderAgendamentos()" style="background:' + s.bg + ';border:1px solid ' + s.cor + '33;border-radius:8px;padding:7px 10px;cursor:pointer">'
+      return '<div style="display:flex;gap:8px;align-items:stretch;margin-bottom:4px">'
+        + '<div style="font-size:.7rem;color:var(--color-text-muted);width:38px;padding-top:8px;text-align:right;flex-shrink:0">s/hora</div>'
+        + '<div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0">'
+        + '<div style="width:8px;height:8px;border-radius:50%;background:' + s.cor + ';margin-top:10px;flex-shrink:0"></div>'
+        + '<div style="flex:1;width:1px;background:rgba(255,255,255,.08);margin-top:2px"></div>'
+        + '</div>'
+        + '<div style="flex:1;padding-bottom:8px">'
+        + '<div onclick="agModalAberto=\'' + ag.id + '\';agDiaSelecionado=null;renderAgendamentos()" style="background:' + s.bg + ';border:1px solid ' + s.cor + '33;border-radius:8px;padding:7px 10px;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity=\'.8\'" onmouseout="this.style.opacity=\'1\'">'
         + '<div style="display:flex;justify-content:space-between;align-items:center">'
-        + '<span style="font-size:.8rem;font-weight:700">' + (ag.cliente||'Sem nome') + '</span>'
+        + '<span style="font-size:.8rem;font-weight:700;color:var(--color-text-primary)">' + (ag.cliente||'Sem nome') + '</span>'
         + agStatusBadge(ag.status)
         + '</div>'
-        + '<div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">' + (ag.tipo||'Servico') + (ag.veiculo?' - '+ag.veiculo:'') + '</div>'
-        + '</div></div></div>';
+        + '<div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">' + (ag.tipo||'Servico') + (ag.veiculo?' &middot; '+ag.veiculo:'') + '</div>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
     }).join('');
-    const timelineHTML = agSemHoraHTML + HORARIOS_DIA.map(function(h) {
-      const agsHora = agsD.filter(function(a){ return a.hora === h; });
+
+    const timelineHTML = agSemHoraHTML + HORARIOS_DIA.map(h => {
+      const agsHora = agsD.filter(a => a.hora === h);
       if (agsHora.length > 0) {
-        return agsHora.map(function(ag) {
+        return agsHora.map(ag => {
           const s = AG_STATUS[ag.status] || AG_STATUS['agendado'];
-          return '<div style="display:flex;gap:8px;margin-bottom:4px">'
-            + '<div style="font-size:.7rem;color:var(--color-text-muted);width:38px;padding-top:8px;text-align:right">' + h + '</div>'
-            + '<div style="width:8px;height:8px;border-radius:50%;background:' + s.cor + ';margin-top:10px;flex-shrink:0;margin-left:4px"></div>'
-            + '<div style="flex:1;padding-bottom:8px;margin-left:8px">'
-            + '<div onclick="agModalAberto=\'' + ag.id + '\';agDiaSelecionado=null;renderAgendamentos()" style="background:' + s.bg + ';border:1px solid ' + s.cor + '33;border-radius:8px;padding:7px 10px;cursor:pointer">'
+          return '<div style="display:flex;gap:8px;align-items:stretch;margin-bottom:4px">'
+            + '<div style="font-size:.7rem;color:var(--color-text-muted);width:38px;padding-top:8px;text-align:right;flex-shrink:0">' + h + '</div>'
+            + '<div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0">'
+            + '<div style="width:8px;height:8px;border-radius:50%;background:' + s.cor + ';margin-top:10px;flex-shrink:0"></div>'
+            + '<div style="flex:1;width:1px;background:rgba(255,255,255,.08);margin-top:2px"></div>'
+            + '</div>'
+            + '<div style="flex:1;padding-bottom:8px">'
+            + '<div onclick="agModalAberto=\'' + ag.id + '\';agDiaSelecionado=null;renderAgendamentos()" style="background:' + s.bg + ';border:1px solid ' + s.cor + '33;border-radius:8px;padding:7px 10px;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity=\'.8\'" onmouseout="this.style.opacity=\'1\'">'
             + '<div style="display:flex;justify-content:space-between;align-items:center">'
-            + '<span style="font-size:.8rem;font-weight:700">' + (ag.cliente||'Sem nome') + '</span>'
+            + '<span style="font-size:.8rem;font-weight:700;color:var(--color-text-primary)">' + (ag.cliente||'Sem nome') + '</span>'
             + agStatusBadge(ag.status)
             + '</div>'
-            + '<div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">' + (ag.tipo||'Servico') + (ag.veiculo?' - '+ag.veiculo:'') + '</div>'
-            + '</div></div></div>';
+            + '<div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">' + (ag.tipo||'Servico') + (ag.veiculo?' &middot; '+ag.veiculo:'') + '</div>'
+            + '</div>'
+            + '</div>'
+            + '</div>';
         }).join('');
       } else {
-        return '<div style="display:flex;gap:8px;margin-bottom:4px">'
-          + '<div style="font-size:.7rem;color:rgba(255,255,255,.2);width:38px;padding-top:6px;text-align:right">' + h + '</div>'
-          + '<div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.1);margin-top:8px;flex-shrink:0;margin-left:5px"></div>'
-          + '<div style="flex:1;padding-bottom:4px;margin-left:8px">'
-          + '<div onclick="agSelecionarClienteComHora(\'' + agDiaSelecionado + '\',\'' + h + '\')" style="padding:4px 8px;border-radius:6px;cursor:pointer;color:rgba(255,255,255,.2);font-size:.72rem" onmouseover="this.style.color=\'#34d399\'" onmouseout="this.style.color=\'rgba(255,255,255,.2)\'">'
-          + '+ livre'
-          + '</div></div></div>';
+        return '<div style="display:flex;gap:8px;align-items:stretch;margin-bottom:4px">'
+          + '<div style="font-size:.7rem;color:rgba(255,255,255,.2);width:38px;padding-top:6px;text-align:right;flex-shrink:0">' + h + '</div>'
+          + '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">'
+          + '<div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.1);margin-top:8px;flex-shrink:0"></div>'
+          + '<div style="flex:1;width:1px;background:rgba(255,255,255,.05);margin-top:2px"></div>'
+          + '</div>'
+          + '<div style="flex:1;padding-bottom:4px">'
+          + '<div onclick="agSelecionarClienteComHora(\'' + agDiaSelecionado + '\',\'' + h + '\')" style="padding:4px 8px;border-radius:6px;cursor:pointer;color:rgba(255,255,255,.2);font-size:.72rem;transition:all .15s" onmouseover="this.style.background=\'rgba(52,211,153,.08)\';this.style.color=\'#34d399\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'rgba(255,255,255,.2)\'">'
+          + '+ livre — agendar'
+          + '</div>'
+          + '</div>'
+          + '</div>';
       }
     }).join('');
 
@@ -13592,194 +13602,247 @@ function renderAgendamentos() {
 let sinoAberto = false;
 
 
-// ═══════════════════════════════════════════
-// CONTAS A PAGAR
-// ═══════════════════════════════════════════
-
 function contasPagarBadge() {
-  const hoje = new Date();
-  const em2 = new Date(); em2.setDate(hoje.getDate() + 2);
-  const hojeStr = hoje.toISOString().split('T')[0];
-  const em2Str  = em2.toISOString().split('T')[0];
-  return contasPagar.filter(c => c.status !== 'pago' && c.vencimento <= em2Str).length;
+  var hoje = new Date().toISOString().split('T')[0];
+  var em2 = new Date(); em2.setDate(em2.getDate()+2);
+  var em2s = em2.toISOString().split('T')[0];
+  return contasPagar.filter(function(x){ return x.status!=='pago' && x.vencimento<=em2s; }).length;
 }
-
 async function salvarContasPagar() {
-  try {
-    await window._firestoreSetDoc(window._userDoc('contas_pagar'), { lista: contasPagar, atualizadoEm: new Date().toISOString() });
-  } catch(e) { console.warn('Erro ao salvar contas:', e); }
+  try { await window._firestoreSetDoc(window._userDoc('contas_pagar'),{lista:contasPagar,atualizadoEm:new Date().toISOString()}); } catch(e){}
 }
-
 async function carregarContasPagar() {
-  try {
-    const snap = await window._firestoreGetDoc(window._userDoc('contas_pagar'));
-    contasPagar = snap.exists() ? (snap.data().lista || []) : [];
-  } catch(e) { contasPagar = []; }
+  try { var s=await window._firestoreGetDoc(window._userDoc('contas_pagar')); contasPagar=s.exists()?(s.data().lista||[]):[];} catch(e){contasPagar=[];}
 }
-
 function contasPagarAdicionar() {
-  const modal = document.createElement('div');
-  modal.id = 'modal-nova-conta';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px';
-  modal.innerHTML = `<div onclick="event.stopPropagation()" style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:16px;padding:24px;width:100%;max-width:420px">
-    <div style="font-size:.8rem;letter-spacing:2px;color:#60a5fa;margin-bottom:16px">NOVA CONTA A PAGAR</div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div class="orc-field"><label>Nome da Conta</label><input id="cp-nome" type="text" placeholder="Ex: Aluguel, Energia..."/></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="orc-field"><label>Valor (R$)</label><input id="cp-valor" type="number" min="0" step="0.01" placeholder="0,00"/></div>
-        <div class="orc-field"><label>Vencimento</label><input id="cp-venc" type="date"/></div>
-      </div>
-      <div class="orc-field"><label>Recorrência</label>
-        <select id="cp-rec" style="background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-text-primary);border-radius:8px;padding:8px 10px;width:100%">
-          <option value="unica">Única</option>
-          <option value="mensal">Mensal</option>
-          <option value="semanal">Semanal</option>
-          <option value="anual">Anual</option>
-        </select>
-      </div>
-      <div class="orc-field"><label>Categoria</label>
-        <select id="cp-cat" style="background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-text-primary);border-radius:8px;padding:8px 10px;width:100%">
-          <option value="Fixo">Fixo</option>
-          <option value="Imposto">Imposto</option>
-          <option value="Fornecedor">Fornecedor</option>
-          <option value="Servico">Serviço</option>
-          <option value="Outros">Outros</option>
-        </select>
-      </div>
-      <div class="orc-field"><label>Obs</label><input id="cp-obs" type="text" placeholder="Observações..."/></div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:16px">
-      <button onclick="document.getElementById('modal-nova-conta').remove()" style="flex:1;padding:10px;background:transparent;border:1px solid var(--color-border);color:var(--color-text-muted);border-radius:8px;cursor:pointer">Cancelar</button>
-      <button onclick="contasPagarSalvarNova()" style="flex:2;padding:10px;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.4);color:#60a5fa;border-radius:8px;cursor:pointer;font-weight:700">Salvar</button>
-    </div>
-  </div>`;
-  modal.onclick = () => modal.remove();
-  document.body.appendChild(modal);
-  setTimeout(() => document.getElementById('cp-nome')?.focus(), 50);
+  if (document.getElementById('modal-cp')) return;
+  var el = document.createElement('div');
+  el.id = 'modal-cp';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px';
+  var div = document.createElement('div');
+  div.style.cssText = 'background:var(--color-surface);border:1px solid var(--color-border);border-radius:16px;padding:24px;width:100%;max-width:420px';
+  div.innerHTML = '<div style="font-size:.8rem;letter-spacing:2px;color:#60a5fa;margin-bottom:16px">NOVA CONTA A PAGAR</div>'
+    + '<div class="orc-field"><label>Nome</label><input id="cp-nome" type="text" placeholder="Ex: Aluguel..."/></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
+    + '<div class="orc-field"><label>Valor R$</label><input id="cp-valor" type="number" min="0" step="0.01"/></div>'
+    + '<div class="orc-field"><label>Vencimento</label><input id="cp-venc" type="date"/></div></div>'
+    + '<div class="orc-field" style="margin-top:10px"><label>Recorrencia</label>'
+    + '<select id="cp-rec" style="background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-text-primary);border-radius:8px;padding:8px 10px;width:100%">'
+    + '<option value="unica">Unica</option><option value="mensal">Mensal</option>'
+    + '<option value="semanal">Semanal</option><option value="anual">Anual</option></select></div>'
+    + '<div class="orc-field" style="margin-top:10px"><label>Obs</label><input id="cp-obs" type="text" placeholder="Observacoes..."/></div>'
+    + '<div style="display:flex;gap:10px;margin-top:16px">'
+    + '<button id="cp-btn-cancel" style="flex:1;padding:10px;background:transparent;border:1px solid var(--color-border);color:var(--color-text-muted);border-radius:8px;cursor:pointer">Cancelar</button>'
+    + '<button onclick="contasPagarSalvar()" style="flex:2;padding:10px;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.4);color:#60a5fa;border-radius:8px;cursor:pointer;font-weight:700">Salvar</button>'
+    + '</div>';
+  el.appendChild(div);
+  el.onclick = function(e){ if(e.target===el) el.remove(); };
+  document.body.appendChild(el);
+  setTimeout(function(){ 
+    var inp = document.getElementById('cp-nome');
+    if(inp) inp.focus();
+    var btn = document.getElementById('cp-btn-cancel');
+    if(btn) btn.onclick = function(){ el.remove(); };
+  }, 50);
 }
 
-function contasPagarSalvarNova() {
-  const nome  = (document.getElementById('cp-nome')?.value||'').trim();
-  const valor = document.getElementById('cp-valor')?.value || '';
-  const venc  = document.getElementById('cp-venc')?.value;
-  const rec   = document.getElementById('cp-rec')?.value || 'unica';
-  const cat   = document.getElementById('cp-cat')?.value || 'Outros';
-  const obs   = document.getElementById('cp-obs')?.value || '';
-  if (!nome) { mostrarErro('Informe o nome da conta.'); return; }
-  if (!venc)  { mostrarErro('Informe a data de vencimento.'); return; }
-  contasPagar.push({ id: 'cp_' + Date.now(), nome, valor, vencimento: venc, recorrencia: rec, categoria: cat, obs, status: 'pendente', criadoEm: new Date().toISOString() });
+function contasPagarSalvar() {
+  var nome=(document.getElementById('cp-nome').value||'').trim();
+  var valor=document.getElementById('cp-valor').value||'';
+  var venc=document.getElementById('cp-venc').value;
+  var rec=document.getElementById('cp-rec').value||'unica';
+  var obs=document.getElementById('cp-obs').value||'';
+  if(!nome){mostrarErro('Informe o nome.');return;}
+  if(!venc){mostrarErro('Informe o vencimento.');return;}
+  contasPagar.push({id:'cp_'+Date.now(),nome:nome,valor:valor,vencimento:venc,recorrencia:rec,obs:obs,status:'pendente',criadoEm:new Date().toISOString()});
   salvarContasPagar();
-  document.getElementById('modal-nova-conta')?.remove();
+  document.getElementById('modal-cp').remove();
   renderContasPagar();
   renderSidebar();
   mostrarToast('Conta adicionada!');
 }
-
-function contasPagarMarcarPago(id) {
-  const c = contasPagar.find(x => x.id === id);
-  if (!c) return;
-  c.status = 'pago';
-  c.pagoEm = new Date().toISOString();
-  if (c.recorrencia !== 'unica') {
-    const prox = new Date(c.vencimento + 'T12:00:00');
-    if (c.recorrencia === 'mensal') prox.setMonth(prox.getMonth() + 1);
-    else if (c.recorrencia === 'semanal') prox.setDate(prox.getDate() + 7);
-    else if (c.recorrencia === 'anual') prox.setFullYear(prox.getFullYear() + 1);
-    const nova = Object.assign({}, c);
-    nova.id = 'cp_' + Date.now();
-    nova.status = 'pendente';
-    nova.vencimento = prox.toISOString().split('T')[0];
-    delete nova.pagoEm;
-    contasPagar.push(nova);
+function contasPagarPago(id) {
+  var c=contasPagar.find(function(x){return x.id===id;});
+  if(!c)return;
+  c.status='pago';c.pagoEm=new Date().toISOString();
+  if(c.recorrencia!=='unica'){
+    var p=new Date(c.vencimento+'T12:00:00');
+    if(c.recorrencia==='mensal')p.setMonth(p.getMonth()+1);
+    else if(c.recorrencia==='semanal')p.setDate(p.getDate()+7);
+    else if(c.recorrencia==='anual')p.setFullYear(p.getFullYear()+1);
+    var n=Object.assign({},c);n.id='cp_'+Date.now();n.status='pendente';n.vencimento=p.toISOString().split('T')[0];delete n.pagoEm;
+    contasPagar.push(n);
   }
-  salvarContasPagar();
-  renderContasPagar();
-  renderSidebar();
-  mostrarToast('Conta marcada como paga!');
+  salvarContasPagar();renderContasPagar();renderSidebar();mostrarToast('Pago!');
 }
-
 function contasPagarExcluir(id) {
-  const c = contasPagar.find(x => x.id === id);
-  if (!c) return;
-  confirmarExclusao(c.nome, function() {
-    contasPagar = contasPagar.filter(x => x.id !== id);
-    salvarContasPagar();
-    renderContasPagar();
-    renderSidebar();
+  var c=contasPagar.find(function(x){return x.id===id;});
+  if(!c)return;
+  confirmarExclusao(c.nome,function(){
+    contasPagar=contasPagar.filter(function(x){return x.id!==id;});
+    salvarContasPagar();renderContasPagar();renderSidebar();
   });
 }
-
 function renderContasPagar() {
-  const main = document.getElementById('mainContent');
-  const hoje = new Date();
-  const hojeStr = hoje.toISOString().split('T')[0];
-  const em2 = new Date(); em2.setDate(hoje.getDate() + 2);
-  const em2Str = em2.toISOString().split('T')[0];
-  const fmt2 = function(v){ return 'R$ ' + parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+  var main=document.getElementById('mainContent');
+  var hoje=new Date().toISOString().split('T')[0];
+  var em2=new Date();em2.setDate(em2.getDate()+2);var em2s=em2.toISOString().split('T')[0];
+  var f2=function(v){return 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var pend=contasPagar.filter(function(c){return c.status!=='pago';}).sort(function(a,b){return a.vencimento.localeCompare(b.vencimento);});
+  var pagas=contasPagar.filter(function(c){return c.status==='pago';}).sort(function(a,b){return (b.pagoEm||'').localeCompare(a.pagoEm||'');}).slice(0,10);
+  var tot=pend.reduce(function(s,c){return s+(parseFloat(c.valor)||0);},0);
+  function si(c){
+    if(c.vencimento<hoje)return{cor:'#ef4444',bg:'rgba(239,68,68,.08)',label:'VENCIDA',icon:'🔴'};
+    if(c.vencimento<=em2s)return{cor:'#f59e0b',bg:'rgba(245,158,11,.08)',label:'VENCE EM BREVE',icon:'🟡'};
+    return{cor:'#60a5fa',bg:'rgba(96,165,250,.06)',label:'PENDENTE',icon:'📋'};
+  }
+  var html='<div class="toolbar"><span style="font-size:1.1rem;font-weight:700;letter-spacing:2px">Contas a Pagar</span>'
+    +'<div class="toolbar-right"><button class="btn btn-add" onclick="contasPagarAdicionar()">+ Nova Conta</button></div></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">'
+    +'<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);border-radius:10px;padding:14px"><div style="font-size:1.3rem;font-weight:700;color:#ef4444">'+pend.filter(function(c){return c.vencimento<hoje;}).length+'</div><div style="font-size:.7rem;color:var(--color-text-muted)">Vencidas</div></div>'
+    +'<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15);border-radius:10px;padding:14px"><div style="font-size:1.3rem;font-weight:700;color:#f59e0b">'+pend.filter(function(c){return c.vencimento>=hoje&&c.vencimento<=em2s;}).length+'</div><div style="font-size:.7rem;color:var(--color-text-muted)">Vencem em 2 dias</div></div>'
+    +'<div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.15);border-radius:10px;padding:14px"><div style="font-size:1.3rem;font-weight:700;color:#60a5fa">'+f2(tot)+'</div><div style="font-size:.7rem;color:var(--color-text-muted)">Total pendente</div></div>'
+    +'</div>';
+  if(pend.length===0) html+='<div style="text-align:center;padding:40px;color:var(--color-text-muted);border:1px dashed rgba(255,255,255,.1);border-radius:12px">Nenhuma conta pendente</div>';
+  pend.forEach(function(c){
+    var s=si(c);
+    var ds=c.vencimento<hoje?'Venceu em '+new Date(c.vencimento+'T12:00:00').toLocaleDateString('pt-BR'):c.vencimento===hoje?'Vence hoje!':'Vence em '+new Date(c.vencimento+'T12:00:00').toLocaleDateString('pt-BR');
+    html+='<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:'+s.bg+';border:1px solid '+s.cor+'33;border-radius:12px;margin-bottom:8px">'
+      +'<div>'+s.icon+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-size:.88rem;font-weight:700">'+c.nome+'</div>'
+      +'<div style="font-size:.72rem;color:var(--color-text-muted)">'+ds+' · '+(c.obs||c.recorrencia)+' </div></div>'
+      +'<div style="font-size:.9rem;font-weight:700;color:'+s.cor+';margin-right:8px">'+(c.valor?f2(c.valor):'—')+'</div>'
+      +'<button onclick="contasPagarPago(\''+c.id+'\')" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399;border-radius:8px;padding:6px 12px;font-size:.75rem;cursor:pointer;font-weight:700">Pago</button>'
+      +'<button onclick="contasPagarExcluir(\''+c.id+'\')" style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);color:#fca5a5;border-radius:8px;padding:6px 10px;font-size:.75rem;cursor:pointer">X</button>'
+      +'</div>';
+  });
+  if(pagas.length>0){
+    html+='<div style="margin-top:20px"><div style="font-size:.7rem;letter-spacing:2px;color:var(--color-text-muted);margin-bottom:10px">PAGAS RECENTEMENTE</div>';
+    pagas.forEach(function(c){
+      html+='<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:rgba(52,211,153,.04);border:1px solid rgba(52,211,153,.1);border-radius:10px;margin-bottom:6px;opacity:.6">'
+        +'<span style="color:#34d399">OK</span><span style="flex:1;font-size:.82rem">'+c.nome+'</span>'
+        +'<span style="font-size:.72rem;color:var(--color-text-muted)">'+(c.pagoEm?new Date(c.pagoEm).toLocaleDateString('pt-BR'):'')+'</span>'
+        +'<span style="font-size:.82rem;font-weight:700;color:#34d399">'+(c.valor?f2(c.valor):'—')+'</span>'
+        +'<button onclick="contasPagarExcluir(\''+c.id+'\')" style="background:transparent;border:none;color:var(--color-text-muted);cursor:pointer">X</button></div>';
+    });
+    html+='</div>';
+  }
+  main.innerHTML=html;
+}
 
-  const pendentes = contasPagar.filter(c => c.status !== 'pago').sort((a,b) => a.vencimento.localeCompare(b.vencimento));
-  const pagas     = contasPagar.filter(c => c.status === 'pago').sort((a,b) => (b.pagoEm||'').localeCompare(a.pagoEm||'')).slice(0,10);
-  const totalPend = pendentes.reduce((s,c) => s + (parseFloat(c.valor)||0), 0);
+// ═══════════════════════════════════════════
+// RELATORIO POR CATEGORIA
+// ═══════════════════════════════════════════
 
-  function statusInfo(c) {
-    if (c.vencimento < hojeStr) return { cor:'#ef4444', bg:'rgba(239,68,68,.08)', label:'VENCIDA', icon:'🔴' };
-    if (c.vencimento <= em2Str) return { cor:'#f59e0b', bg:'rgba(245,158,11,.08)', label:'VENCE EM BREVE', icon:'🟡' };
-    return { cor:'#60a5fa', bg:'rgba(96,165,250,.06)', label:'PENDENTE', icon:'📋' };
+function relatorioCategoriaAbrir(m) {
+  var existing = document.getElementById('modal-rel-cat');
+  if (existing) existing.remove();
+  var mes = dados[m];
+  if (!mes) return;
+  var todasCats = ['Todos'].concat(CATEGORIAS);
+  var el = document.createElement('div');
+  el.id = 'modal-rel-cat';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px';
+  var optsHtml = todasCats.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('');
+  var div = document.createElement('div');
+  div.style.cssText = 'background:var(--color-surface);border:1px solid var(--color-border);border-radius:16px;padding:24px;width:100%;max-width:560px;max-height:85vh;overflow-y:auto';
+  div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+    + '<div style="font-size:.85rem;letter-spacing:2px;color:#60a5fa;font-weight:700">RELATORIO POR CATEGORIA — ' + MESES[m] + '</div>'
+    + '<button id="rel-cat-fechar" style="background:transparent;border:none;color:var(--color-text-muted);font-size:1.1rem;cursor:pointer">X</button>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">'
+    + '<label style="font-size:.75rem;color:var(--color-text-muted)">Categoria:</label>'
+    + '<select id="rel-cat-select" style="flex:1;background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-text-primary);border-radius:8px;padding:8px 10px">' + optsHtml + '</select>'
+    + '</div>'
+    + '<div id="rel-cat-resultado"></div>';
+  el.appendChild(div);
+  el.onclick = function(e){ if(e.target===el) el.remove(); };
+  document.body.appendChild(el);
+  var sel = document.getElementById('rel-cat-select');
+  sel.onchange = function(){ relatorioCategoriaRender(m, sel.value); };
+  document.getElementById('rel-cat-fechar').onclick = function(){ el.remove(); };
+  relatorioCategoriaRender(m, 'Todos');
+}
+
+function relatorioCategoriaRender(m, cat) {
+  var mes = dados[m];
+  var out = document.getElementById('rel-cat-resultado');
+  if (!out || !mes) return;
+  var fmt2 = function(v){ return 'R$ ' + parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+
+  var variaveis = (mes.variaveis||[]).filter(function(v){ return cat==='Todos' || (v.cat||'Outros')===cat; });
+  var fixos = cat==='Todos' || cat==='Fixo' ? (mes.fixos||[]).filter(function(f){ return parseFloat(f.valor)>0; }) : [];
+
+  var totalVar = variaveis.reduce(function(s,v){ return s+(parseFloat(v.valor)||0); },0);
+  var totalFix = fixos.reduce(function(s,f){ return s+(parseFloat(f.valor)||0); },0);
+  var total = totalVar + totalFix;
+  var qtd = variaveis.length + fixos.length;
+
+  var todasLin = variaveis.map(function(v){ return {nome:v.desc||'-', valor:v.valor, data:v.data, cat:v.cat||'Outros', forma:v.formaPgto||''}; })
+    .concat(fixos.map(function(f){ return {nome:f.nome, valor:f.valor, data:f.data, cat:'Fixo', forma:''}; }));
+  todasLin.sort(function(a,b){ return (a.data||'').localeCompare(b.data||''); });
+
+  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">'
+    + '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);border-radius:10px;padding:14px">'
+    + '<div style="font-size:1.2rem;font-weight:700;color:#ef4444">' + fmt2(total) + '</div>'
+    + '<div style="font-size:.7rem;color:var(--color-text-muted)">Total em ' + cat + '</div></div>'
+    + '<div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.15);border-radius:10px;padding:14px">'
+    + '<div style="font-size:1.2rem;font-weight:700;color:#60a5fa">' + qtd + '</div>'
+    + '<div style="font-size:.7rem;color:var(--color-text-muted)">Lançamentos</div></div>'
+    + '</div>';
+
+  if (todasLin.length === 0) {
+    html += '<div style="text-align:center;padding:30px;color:var(--color-text-muted);border:1px dashed rgba(255,255,255,.1);border-radius:12px">Nenhum lançamento nessa categoria</div>';
+  } else {
+    html += '<div style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto">';
+    todasLin.forEach(function(l){
+      var dataFmt = l.data ? new Date(l.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px">'
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:.8rem;font-weight:600">' + l.nome + '</div>'
+        + '<div style="font-size:.68rem;color:var(--color-text-muted)">' + dataFmt + (l.cat?' · '+l.cat:'') + (l.forma?' · '+l.forma:'') + '</div>'
+        + '</div>'
+        + '<div style="font-size:.85rem;font-weight:700;color:#fca5a5">' + fmt2(l.valor) + '</div>'
+        + '</div>';
+    });
+    html += '</div>';
   }
 
-  main.innerHTML = `
-    <div class="toolbar">
-      <span style="font-size:1.1rem;font-weight:700;letter-spacing:2px">Contas a Pagar</span>
-      <div class="toolbar-right">
-        <button class="btn btn-add" onclick="contasPagarAdicionar()">+ Nova Conta</button>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">
-      <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);border-radius:10px;padding:14px">
-        <div style="font-size:1.3rem;font-weight:700;color:#ef4444">${pendentes.filter(c=>c.vencimento<hojeStr).length}</div>
-        <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">Vencidas</div>
-      </div>
-      <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15);border-radius:10px;padding:14px">
-        <div style="font-size:1.3rem;font-weight:700;color:#f59e0b">${pendentes.filter(c=>c.vencimento>=hojeStr&&c.vencimento<=em2Str).length}</div>
-        <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">Vencem em 2 dias</div>
-      </div>
-      <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.15);border-radius:10px;padding:14px">
-        <div style="font-size:1.3rem;font-weight:700;color:#60a5fa">${fmt2(totalPend)}</div>
-        <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">Total pendente</div>
-      </div>
-    </div>
-    ${pendentes.length === 0 ? '<div style="text-align:center;padding:40px;color:var(--color-text-muted);border:1px dashed rgba(255,255,255,.1);border-radius:12px">Nenhuma conta pendente</div>' : ''}
-    ${pendentes.map(c => {
-      const s = statusInfo(c);
-      const diasStr = c.vencimento < hojeStr ? 'Venceu em ' + new Date(c.vencimento+'T12:00:00').toLocaleDateString('pt-BR')
-        : c.vencimento === hojeStr ? 'Vence hoje!'
-        : 'Vence em ' + new Date(c.vencimento+'T12:00:00').toLocaleDateString('pt-BR');
-      return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:${s.bg};border:1px solid ${s.cor}33;border-radius:12px;margin-bottom:8px">
-        <div style="font-size:1.1rem">${s.icon}</div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
-            <span style="font-size:.88rem;font-weight:700">${c.nome}</span>
-            <span style="font-size:.6rem;padding:1px 7px;border-radius:4px;background:${s.cor}22;color:${s.cor}">${s.label}</span>
-            ${c.recorrencia !== 'unica' ? `<span style="font-size:.6rem;color:var(--color-text-muted)">🔁 ${c.recorrencia}</span>` : ''}
-          </div>
-          <div style="font-size:.72rem;color:var(--color-text-muted)">${diasStr} · ${c.categoria}${c.obs?' · '+c.obs:''}</div>
-        </div>
-        <div style="font-size:.9rem;font-weight:700;color:${s.cor};margin-right:8px">${c.valor ? fmt2(c.valor) : '—'}</div>
-        <button onclick="contasPagarMarcarPago('${c.id}')" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399;border-radius:8px;padding:6px 12px;font-size:.75rem;cursor:pointer;font-weight:700">Pago</button>
-        <button onclick="contasPagarExcluir('${c.id}')" style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);color:#fca5a5;border-radius:8px;padding:6px 10px;font-size:.75rem;cursor:pointer">X</button>
-      </div>`;
-    }).join('')}
-    ${pagas.length > 0 ? `<div style="margin-top:20px">
-      <div style="font-size:.7rem;letter-spacing:2px;color:var(--color-text-muted);margin-bottom:10px">PAGAS RECENTEMENTE</div>
-      ${pagas.map(c => `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:rgba(52,211,153,.04);border:1px solid rgba(52,211,153,.1);border-radius:10px;margin-bottom:6px;opacity:.6">
-        <span style="color:#34d399">OK</span>
-        <span style="flex:1;font-size:.82rem">${c.nome}</span>
-        <span style="font-size:.72rem;color:var(--color-text-muted)">${c.pagoEm ? new Date(c.pagoEm).toLocaleDateString('pt-BR') : ''}</span>
-        <span style="font-size:.82rem;font-weight:700;color:#34d399">${c.valor ? fmt2(c.valor) : '—'}</span>
-        <button onclick="contasPagarExcluir('${c.id}')" style="background:transparent;border:none;color:var(--color-text-muted);cursor:pointer">X</button>
-      </div>`).join('')}
-    </div>` : ''}
-  `;
+  html += '<div style="display:flex;gap:10px;margin-top:16px">'
+    + '<button onclick="relatorioCategoriaImprimir(' + m + ',\'' + cat + '\')" style="flex:1;padding:10px;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.4);color:#60a5fa;border-radius:8px;cursor:pointer;font-weight:700">🖨️ Imprimir / PDF</button>'
+    + '</div>';
+
+  out.innerHTML = html;
+}
+
+function relatorioCategoriaImprimir(m, cat) {
+  var mes = dados[m];
+  if (!mes) return;
+  var fmt2 = function(v){ return 'R$ ' + parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+  var variaveis = (mes.variaveis||[]).filter(function(v){ return cat==='Todos' || (v.cat||'Outros')===cat; });
+  var fixos = cat==='Todos' || cat==='Fixo' ? (mes.fixos||[]).filter(function(f){ return parseFloat(f.valor)>0; }) : [];
+  var total = variaveis.reduce(function(s,v){ return s+(parseFloat(v.valor)||0); },0) + fixos.reduce(function(s,f){ return s+(parseFloat(f.valor)||0); },0);
+  var todasLin = variaveis.map(function(v){ return {nome:v.desc||'-', valor:v.valor, data:v.data, cat:v.cat||'Outros'}; })
+    .concat(fixos.map(function(f){ return {nome:f.nome, valor:f.valor, data:f.data, cat:'Fixo'}; }));
+  todasLin.sort(function(a,b){ return (a.data||'').localeCompare(b.data||''); });
+
+  var linhas = todasLin.map(function(l){
+    var dataFmt = l.data ? new Date(l.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+    return '<tr><td>'+dataFmt+'</td><td>'+l.nome+'</td><td>'+l.cat+'</td><td style="text-align:right">'+fmt2(l.valor)+'</td></tr>';
+  }).join('');
+
+  var win = window.open('', '_blank');
+  win.document.write('<html><head><title>Relatorio ' + cat + ' - ' + MESES[m] + '</title>'
+    + '<style>body{font-family:Arial,sans-serif;padding:30px;color:#222}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{padding:8px;border-bottom:1px solid #ddd;font-size:13px;text-align:left}th{background:#f5f5f5}.total{font-size:16px;font-weight:bold;margin-top:16px;text-align:right}</style>'
+    + '</head><body>'
+    + '<h1>ZL Motos — Relatorio: ' + cat + '</h1>'
+    + '<div>Mes: ' + MESES[m] + '</div>'
+    + '<table><thead><tr><th>Data</th><th>Descricao</th><th>Categoria</th><th style="text-align:right">Valor</th></tr></thead><tbody>'
+    + linhas + '</tbody></table>'
+    + '<div class="total">Total: ' + fmt2(total) + '</div>'
+    + '</body></html>');
+  win.document.close();
+  setTimeout(function(){ win.print(); }, 400);
 }
 
 function sinoToggle() { sinoAberto ? sinoFechar() : sinoAbrir(); }
@@ -13928,7 +13991,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.20
+// splash duplicado removido em v5.5.9.21
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
