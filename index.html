@@ -3450,6 +3450,7 @@ let estEntradas = [];          // C07 — histórico de entradas de estoque
 let dados = {};
 let abaAtiva = 18;
 let filtroCategoria = 'Todos';
+let filtroFormaPgto = 'Todos';
 let extratoPaginas = {}; // quantas páginas de datas mostrar por mês (7 datas por página)
 const EXTRATO_PAGE = 7;  // dias por página
 
@@ -4405,6 +4406,7 @@ function sbIr(aba) {
   if (aba !== 13) orcModoFormulario = false;
   clienteDetalhe = null;
   filtroCategoria = 'Todos';
+  filtroFormaPgto = 'Todos';
   renderAll();
   // fecha em mobile
   if (window.innerWidth <= 900) fecharSidebar();
@@ -4413,6 +4415,7 @@ function sbIr(aba) {
 function sbIrMes(i) {
   abaAtiva = i;
   filtroCategoria = 'Todos';
+  filtroFormaPgto = 'Todos';
   renderAll();
   if (window.innerWidth <= 900) fecharSidebar();
 }
@@ -4566,7 +4569,9 @@ function renderMes(m) {
             // Juntar entradas e saídas variáveis com tipo
             const todasEntradas = (mes.entradas||[]).map(function(e,idx){ const o={}; for(var k in e) o[k]=e[k]; o._tipo='entrada'; o._idx=idx; return o; });
             const todasSaidas   = (mes.variaveis||[]).map(function(v,idx){ const o={}; for(var k in v) o[k]=v[k]; o._tipo='saida'; o._idx=idx; return o; });
-            const todos = todasEntradas.concat(todasSaidas).sort(function(a,b){
+            let todos = todasEntradas.concat(todasSaidas);
+            if (filtroFormaPgto !== 'Todos') todos = todos.filter(function(l){ return l.formaPgto === filtroFormaPgto; });
+            todos = todos.sort(function(a,b){
               const da = (a.data||'9999')+(a.hora||'00:00');
               const db = (b.data||'9999')+(b.hora||'00:00');
               return db.localeCompare(da); // mais recente primeiro
@@ -4681,6 +4686,16 @@ function renderMes(m) {
             style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;padding:5px 10px;font-size:.75rem;outline:none;width:120px"/>
           <button onclick="categoriaAdicionar(document.getElementById('nova-cat-input').value);document.getElementById('nova-cat-input').value=''" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399;border-radius:8px;padding:5px 10px;font-size:.75rem;cursor:pointer;font-weight:700">+ Add</button>
         </div>
+      </div>
+
+      <!-- FILTRO FORMA DE PAGAMENTO -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 2px;margin-top:6px">
+        <span style="font-size:.68rem;color:var(--color-text-muted);letter-spacing:1px">FORMA PGTO:</span>
+        ${['Todos','Dinheiro','PIX','Crédito','Débito'].map(function(fp){
+          var ativo = filtroFormaPgto===fp;
+          return '<button onclick="filtroFormaPgto=&quot;' + fp + '&quot;;renderAll()" style="font-size:.7rem;padding:4px 10px;border-radius:6px;cursor:pointer;background:' + (ativo?'rgba(96,165,250,.15)':'rgba(255,255,255,.04)') + ';border:1px solid ' + (ativo?'rgba(96,165,250,.4)':'rgba(255,255,255,.08)') + ';color:' + (ativo?'#60a5fa':'var(--color-text-muted)') + '">' + fp + '</button>';
+        }).join('')}
+        <button onclick="relatorioFormaPgtoAbrir(${m})" style="font-size:.7rem;padding:4px 10px;border-radius:6px;cursor:pointer;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);color:#a78bfa;margin-left:auto">📊 Relatório por Forma de Pagamento</button>
       </div>
 
       <!-- SAÍDAS FIXAS -->
@@ -13914,6 +13929,141 @@ function caixaDiaHTML(m, data) {
     + '</div>'
     + (iniTotal>0 || fimTotal>0 ? '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(96,165,250,.1);font-size:.72rem;color:var(--color-text-muted)">Diferença (Final - Inicial): <span style="font-weight:700;color:' + ((fimTotal-iniTotal)>=0?'#34d399':'#fca5a5') + '">R$ ' + (fimTotal-iniTotal).toLocaleString('pt-BR',{minimumFractionDigits:2}) + '</span></div>' : '')
     + '</div>';
+}
+
+
+// ═══════════════════════════════════════════
+// RELATORIO POR FORMA DE PAGAMENTO
+// ═══════════════════════════════════════════
+
+function relatorioFormaPgtoAbrir(m) {
+  var existing = document.getElementById('modal-rel-fp');
+  if (existing) existing.remove();
+  var mes = dados[m];
+  if (!mes) return;
+  var formas = ['Todos','Dinheiro','PIX','Crédito','Débito','(sem forma)'];
+  var el = document.createElement('div');
+  el.id = 'modal-rel-fp';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px';
+  var optsHtml = formas.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('');
+  var div = document.createElement('div');
+  div.style.cssText = 'background:var(--color-surface);border:1px solid var(--color-border);border-radius:16px;padding:24px;width:100%;max-width:560px;max-height:85vh;overflow-y:auto';
+  div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+    + '<div style="font-size:.85rem;letter-spacing:2px;color:#a78bfa;font-weight:700">RELATORIO POR FORMA DE PAGAMENTO — ' + MESES[m] + '</div>'
+    + '<button id="rel-fp-fechar" style="background:transparent;border:none;color:var(--color-text-muted);font-size:1.1rem;cursor:pointer">X</button>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">'
+    + '<label style="font-size:.75rem;color:var(--color-text-muted)">Forma:</label>'
+    + '<select id="rel-fp-select" style="flex:1;background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-text-primary);border-radius:8px;padding:8px 10px">' + optsHtml + '</select>'
+    + '</div>'
+    + '<div id="rel-fp-resultado"></div>';
+  el.appendChild(div);
+  el.onclick = function(e){ if(e.target===el) el.remove(); };
+  document.body.appendChild(el);
+  var sel = document.getElementById('rel-fp-select');
+  sel.onchange = function(){ relatorioFormaPgtoRender(m, sel.value); };
+  document.getElementById('rel-fp-fechar').onclick = function(){ el.remove(); };
+  relatorioFormaPgtoRender(m, 'Todos');
+}
+
+function relatorioFormaPgtoRender(m, forma) {
+  var mes = dados[m];
+  var out = document.getElementById('rel-fp-resultado');
+  if (!out || !mes) return;
+  var fmt2 = function(v){ return 'R$ ' + parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+
+  function matchForma(l) {
+    if (forma === 'Todos') return true;
+    if (forma === '(sem forma)') return !l.formaPgto;
+    return l.formaPgto === forma;
+  }
+
+  var entradas = (mes.entradas||[]).filter(matchForma);
+  var saidas   = (mes.variaveis||[]).filter(matchForma);
+
+  var totalE = entradas.reduce(function(s,e){ return s+(parseFloat(e.valor)||0); },0);
+  var totalS = saidas.reduce(function(s,v){ return s+(parseFloat(v.valor)||0); },0);
+  var saldo = totalE - totalS;
+
+  var todasLin = entradas.map(function(e){ return {nome:e.desc||'-', valor:e.valor, data:e.data, tipo:'entrada', forma:e.formaPgto||'-'}; })
+    .concat(saidas.map(function(v){ return {nome:v.desc||'-', valor:v.valor, data:v.data, tipo:'saida', forma:v.formaPgto||'-', cat:v.cat}; }));
+  todasLin.sort(function(a,b){ return (a.data||'').localeCompare(b.data||''); });
+
+  var html = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">'
+    + '<div style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.15);border-radius:10px;padding:12px">'
+    + '<div style="font-size:1.05rem;font-weight:700;color:#34d399">' + fmt2(totalE) + '</div>'
+    + '<div style="font-size:.65rem;color:var(--color-text-muted)">Entradas (' + entradas.length + ')</div></div>'
+    + '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);border-radius:10px;padding:12px">'
+    + '<div style="font-size:1.05rem;font-weight:700;color:#ef4444">' + fmt2(totalS) + '</div>'
+    + '<div style="font-size:.65rem;color:var(--color-text-muted)">Saídas (' + saidas.length + ')</div></div>'
+    + '<div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.15);border-radius:10px;padding:12px">'
+    + '<div style="font-size:1.05rem;font-weight:700;color:' + (saldo>=0?'#34d399':'#fca5a5') + '">' + fmt2(saldo) + '</div>'
+    + '<div style="font-size:.65rem;color:var(--color-text-muted)">Saldo</div></div>'
+    + '</div>';
+
+  if (todasLin.length === 0) {
+    html += '<div style="text-align:center;padding:30px;color:var(--color-text-muted);border:1px dashed rgba(255,255,255,.1);border-radius:12px">Nenhum lançamento com essa forma de pagamento</div>';
+  } else {
+    html += '<div style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto">';
+    todasLin.forEach(function(l){
+      var dataFmt = l.data ? new Date(l.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+      var cor = l.tipo==='entrada' ? '#34d399' : '#fca5a5';
+      var sinal = l.tipo==='entrada' ? '+' : '-';
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px">'
+        + '<span style="font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:4px;background:'+cor+'22;color:'+cor+'">' + (l.tipo==='entrada'?'↑':'↓') + '</span>'
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:.8rem;font-weight:600">' + l.nome + '</div>'
+        + '<div style="font-size:.68rem;color:var(--color-text-muted)">' + dataFmt + (l.cat?' · '+l.cat:'') + ' · ' + l.forma + '</div>'
+        + '</div>'
+        + '<div style="font-size:.85rem;font-weight:700;color:'+cor+'">' + sinal + ' ' + fmt2(l.valor) + '</div>'
+        + '</div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div style="display:flex;gap:10px;margin-top:16px">'
+    + '<button onclick="relatorioFormaPgtoImprimir(' + m + ',\'' + forma + '\')" style="flex:1;padding:10px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);color:#a78bfa;border-radius:8px;cursor:pointer;font-weight:700">🖨️ Imprimir / PDF</button>'
+    + '</div>';
+
+  out.innerHTML = html;
+}
+
+function relatorioFormaPgtoImprimir(m, forma) {
+  var mes = dados[m];
+  if (!mes) return;
+  var fmt2 = function(v){ return 'R$ ' + parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+  function matchForma(l) {
+    if (forma === 'Todos') return true;
+    if (forma === '(sem forma)') return !l.formaPgto;
+    return l.formaPgto === forma;
+  }
+  var entradas = (mes.entradas||[]).filter(matchForma);
+  var saidas   = (mes.variaveis||[]).filter(matchForma);
+  var totalE = entradas.reduce(function(s,e){ return s+(parseFloat(e.valor)||0); },0);
+  var totalS = saidas.reduce(function(s,v){ return s+(parseFloat(v.valor)||0); },0);
+  var todasLin = entradas.map(function(e){ return {nome:e.desc||'-', valor:e.valor, data:e.data, tipo:'Entrada'}; })
+    .concat(saidas.map(function(v){ return {nome:v.desc||'-', valor:v.valor, data:v.data, tipo:'Saída'}; }));
+  todasLin.sort(function(a,b){ return (a.data||'').localeCompare(b.data||''); });
+
+  var linhas = todasLin.map(function(l){
+    var dataFmt = l.data ? new Date(l.data+'T12:00:00').toLocaleDateString('pt-BR') : '-';
+    return '<tr><td>'+dataFmt+'</td><td>'+l.tipo+'</td><td>'+l.nome+'</td><td style="text-align:right">'+fmt2(l.valor)+'</td></tr>';
+  }).join('');
+
+  var win = window.open('', '_blank');
+  win.document.write('<html><head><title>Relatorio ' + forma + ' - ' + MESES[m] + '</title>'
+    + '<style>body{font-family:Arial,sans-serif;padding:30px;color:#222}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{padding:8px;border-bottom:1px solid #ddd;font-size:13px;text-align:left}th{background:#f5f5f5}.total{font-size:15px;margin-top:10px}</style>'
+    + '</head><body>'
+    + '<h1>ZL Motos — Relatorio: ' + forma + '</h1>'
+    + '<div>Mes: ' + MESES[m] + '</div>'
+    + '<table><thead><tr><th>Data</th><th>Tipo</th><th>Descricao</th><th style="text-align:right">Valor</th></tr></thead><tbody>'
+    + linhas + '</tbody></table>'
+    + '<div class="total">Total Entradas: ' + fmt2(totalE) + '</div>'
+    + '<div class="total">Total Saidas: ' + fmt2(totalS) + '</div>'
+    + '<div class="total" style="font-weight:bold">Saldo: ' + fmt2(totalE-totalS) + '</div>'
+    + '</body></html>');
+  win.document.close();
+  setTimeout(function(){ win.print(); }, 400);
 }
 
 function sinoToggle() { sinoAberto ? sinoFechar() : sinoAbrir(); }
