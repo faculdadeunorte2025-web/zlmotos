@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.21</title>
+<title>ZL Motos v5.5.9.25</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3092,7 +3092,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.21</div>
+  <div class="splash-version">v5.5.9.25</div>
 </div>
 
 <!-- APP -->
@@ -3103,7 +3103,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.21</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.25</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -4556,6 +4556,32 @@ function renderMes(m) {
     </div>
     <div class="secoes" style="display:flex;flex-direction:column;gap:14px">
 
+      <!-- NÃO PAGOS - topo fixo da aba do mês -->
+      ${(function(){
+        const npEnt = (mes.entradas||[]).map(function(e,idx){ const o={}; for(var k in e) o[k]=e[k]; o._tipo='entrada'; o._idx=idx; return o; }).filter(function(e){ return !e.pago; });
+        const npVar = (mes.variaveis||[]).map(function(v,idx){ const o={}; for(var k in v) o[k]=v[k]; o._tipo='saida'; o._idx=idx; return o; }).filter(function(v){ return !v.pago; });
+        const np = npEnt.concat(npVar).sort(function(a,b){ return (b.data||'').localeCompare(a.data||''); });
+        if (!np.length) return '';
+        const fmtNP = function(v){ return 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+        return '<div style="grid-column:1/-1;background:rgba(251,191,36,.04);border:1px solid rgba(251,191,36,.25);border-radius:14px;padding:14px 16px;margin-bottom:8px">'
+          + '<div style="font-size:.65rem;letter-spacing:2px;color:#fbbf24;font-weight:700;margin-bottom:10px">⚠ AGUARDANDO PAGAMENTO (' + np.length + ')</div>'
+          + np.map(function(l){
+            const isE = l._tipo === 'entrada';
+            const cor = isE ? '#34d399' : '#fca5a5';
+            const dataFmt = l.data ? new Date(l.data+'T12:00:00').toLocaleDateString('pt-BR') : '—';
+            return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+              + neonChk('onchange="dados[${m}].'+(isE?'entradas':'variaveis')+'['+l._idx+'].pago=this.checked;recalcular(${m});salvarDados()"')
+              + '<span style="font-size:.75rem;font-weight:700;color:'+cor+'">' + (isE?'↑':'↓') + '</span>'
+              + '<div style="flex:1;min-width:0">'
+              + '<div style="font-size:.82rem;font-weight:600">' + (l.desc||'—') + '</div>'
+              + '<div style="font-size:.68rem;color:var(--color-text-muted)">' + dataFmt + (l.cat?' · '+l.cat:'') + (l.formaPgto?' · '+l.formaPgto:'') + '</div>'
+              + '</div>'
+              + '<div style="font-size:.88rem;font-weight:700;color:'+cor+'">' + fmtNP(l.valor) + '</div>'
+              + '</div>';
+          }).join('')
+          + '</div>';
+      })()}
+
       <!-- EXTRATO UNIFICADO -->
       <div class="secao" style="grid-column:1/-1">
         <div class="secao-header">
@@ -4579,9 +4605,13 @@ function renderMes(m) {
 
             if (!todos.length) return '<div class="orc-vazio">Nenhum lançamento registrado.</div>';
 
+            // Separar não pagos (ficam no topo)
+            const naoPagos = todos.filter(function(l){ return !l.pago; });
+            const pagos    = todos.filter(function(l){ return l.pago; });
+
             // Agrupar por data
             const grupos = {};
-            todos.forEach(function(l) {
+            pagos.forEach(function(l) {
               const d = l.data || 'sem-data';
               if (!grupos[d]) grupos[d] = [];
               grupos[d].push(l);
@@ -4593,6 +4623,7 @@ function renderMes(m) {
             const temMais = datas.length > datasVisiveis.length;
 
             return datasVisiveis.map(function(d) {
+
               const itens = grupos[d];
               const totalE = itens.filter(function(l){return l._tipo==='entrada';}).reduce(function(s,l){return s+num(l.valor);},0);
               const totalS = itens.filter(function(l){return l._tipo==='saida';}).reduce(function(s,l){return s+num(l.valor);},0);
@@ -5840,18 +5871,68 @@ function renderBuscaGlobal(manterFoco) {
         });
       }
     });
+
+    // ── FINANCEIRO (entradas e saídas) ──
+    for (let m = 0; m < 12; m++) {
+      if (!dados[m]) continue;
+      const mesNome = MESES[m];
+      (dados[m].entradas||[]).forEach(e => {
+        if (!e.desc) return;
+        if ((e.desc||'').toLowerCase().includes(q) || (e.formaPgto||'').toLowerCase().includes(q)) {
+          resultados.push({
+            tipo: 'Financeiro', icon: '💰',
+            titulo: e.desc,
+            sub: mesNome + (e.data ? ' · ' + new Date(e.data+'T12:00:00').toLocaleDateString('pt-BR') : '') + (e.formaPgto ? ' · ' + e.formaPgto : ''),
+            badge: '↑ Entrada',
+            badgeCor: '#34d399',
+            valor: e.valor ? fmt(e.valor) : '',
+            acao: () => { sbIrMes(m); }
+          });
+        }
+      });
+      (dados[m].variaveis||[]).forEach(v => {
+        if (!v.desc) return;
+        if ((v.desc||'').toLowerCase().includes(q) || (v.cat||'').toLowerCase().includes(q) || (v.formaPgto||'').toLowerCase().includes(q)) {
+          resultados.push({
+            tipo: 'Financeiro', icon: '💸',
+            titulo: v.desc,
+            sub: mesNome + (v.data ? ' · ' + new Date(v.data+'T12:00:00').toLocaleDateString('pt-BR') : '') + (v.cat ? ' · ' + v.cat : '') + (v.formaPgto ? ' · ' + v.formaPgto : ''),
+            badge: '↓ Saída',
+            badgeCor: '#fca5a5',
+            valor: v.valor ? fmt(v.valor) : '',
+            acao: () => { sbIrMes(m); }
+          });
+        }
+      });
+    }
+
+    // ── CONTAS A PAGAR ──
+    (contasPagar||[]).forEach(c => {
+      if (!c.nome) return;
+      if ((c.nome||'').toLowerCase().includes(q) || (c.categoria||'').toLowerCase().includes(q)) {
+        resultados.push({
+          tipo: 'Conta', icon: '💳',
+          titulo: c.nome,
+          sub: (c.vencimento ? 'Vence: ' + new Date(c.vencimento+'T12:00:00').toLocaleDateString('pt-BR') : '') + (c.categoria ? ' · ' + c.categoria : '') + (c.recorrencia !== 'unica' ? ' · 🔁 ' + c.recorrencia : ''),
+          badge: c.status === 'pago' ? 'pago' : 'pendente',
+          badgeCor: c.status === 'pago' ? '#34d399' : '#f59e0b',
+          valor: c.valor ? fmt(c.valor) : '',
+          acao: () => { sbIr(24); }
+        });
+      }
+    });
   }
 
   // ── HTML ──────────────────────────────────────────────
-  const grupos = ['OS','Orçamento','Cliente','Agendamento','Estoque'];
-  const iconeGrupo = { OS:'🔧', 'Orçamento':'📋', Cliente:'👤', Agendamento:'📅', Estoque:'📦' };
+  const grupos = ['OS','Orçamento','Cliente','Agendamento','Estoque','Financeiro','Conta'];
+  const iconeGrupo = { OS:'🔧', 'Orçamento':'📋', Cliente:'👤', Agendamento:'📅', Estoque:'📦', Financeiro:'💰', Conta:'💳' };
 
   let listaHTML = '';
   if (q.length < 2) {
     listaHTML = '<div style="text-align:center;padding:48px 0;color:var(--color-text-muted)">'
       + '<div style="font-size:2.5rem;margin-bottom:12px">🔍</div>'
       + '<div style="font-size:.9rem">Digite pelo menos 2 caracteres para buscar</div>'
-      + '<div style="font-size:.75rem;margin-top:8px;opacity:.6">Busca em OS, Orçamentos, Clientes, Agendamentos e Estoque</div>'
+      + '<div style="font-size:.75rem;margin-top:8px;opacity:.6">Busca em OS, Orçamentos, Clientes, Agendamentos, Estoque, Financeiro e Contas a Pagar</div>'
       + '</div>';
   } else if (resultados.length === 0) {
     listaHTML = '<div style="text-align:center;padding:48px 0;color:var(--color-text-muted)">'
@@ -13632,10 +13713,23 @@ function contasPagarBadge() {
   return contasPagar.filter(function(x){ return x.status!=='pago' && x.vencimento<=em2s; }).length;
 }
 async function salvarContasPagar() {
-  try { await window._firestoreSetDoc(window._userDoc('contas_pagar'),{lista:contasPagar,atualizadoEm:new Date().toISOString()}); } catch(e){}
+  if (!window._auth || !window._auth.currentUser) { console.warn('ContasPagar: usuário não logado'); return; }
+  try {
+    await window._firestoreSetDoc(window._userDoc('contas_pagar'), {lista: contasPagar, atualizadoEm: new Date().toISOString()});
+  } catch(e) {
+    console.error('Erro ao salvar contas a pagar:', e);
+    mostrarErro('Erro ao salvar conta: ' + (e.message||e));
+  }
 }
 async function carregarContasPagar() {
-  try { var s=await window._firestoreGetDoc(window._userDoc('contas_pagar')); contasPagar=s.exists()?(s.data().lista||[]):[];} catch(e){contasPagar=[];}
+  if (!window._auth || !window._auth.currentUser) return;
+  try {
+    var s = await window._firestoreGetDoc(window._userDoc('contas_pagar'));
+    contasPagar = s.exists() ? (s.data().lista || []) : [];
+  } catch(e) {
+    console.error('Erro ao carregar contas a pagar:', e);
+    contasPagar = [];
+  }
 }
 function contasPagarAdicionar() {
   if (document.getElementById('modal-cp')) return;
@@ -13687,16 +13781,34 @@ function contasPagarSalvar() {
 function contasPagarPago(id) {
   var c=contasPagar.find(function(x){return x.id===id;});
   if(!c)return;
-  c.status='pago';c.pagoEm=new Date().toISOString();
+  var hoje = new Date();
+  var hojeStr = hoje.toISOString().split('T')[0];
+  var horaStr = hoje.getHours().toString().padStart(2,'0') + ':' + hoje.getMinutes().toString().padStart(2,'0');
+  c.status='pago';c.pagoEm=hoje.toISOString();c.dataPago=hojeStr;
   if(c.recorrencia!=='unica'){
     var p=new Date(c.vencimento+'T12:00:00');
     if(c.recorrencia==='mensal')p.setMonth(p.getMonth()+1);
     else if(c.recorrencia==='semanal')p.setDate(p.getDate()+7);
     else if(c.recorrencia==='anual')p.setFullYear(p.getFullYear()+1);
-    var n=Object.assign({},c);n.id='cp_'+Date.now();n.status='pendente';n.vencimento=p.toISOString().split('T')[0];delete n.pagoEm;
+    var n=Object.assign({},c);n.id='cp_'+Date.now();n.status='pendente';n.vencimento=p.toISOString().split('T')[0];delete n.pagoEm;delete n.dataPago;
     contasPagar.push(n);
   }
-  salvarContasPagar();renderContasPagar();renderSidebar();mostrarToast('Pago!');
+  // Lançar como saída variável no mês correspondente ao dia que foi marcado como pago
+  var mesIdx = hoje.getMonth();
+  if (!dados[mesIdx]) inicializarDadosLocal();
+  if (!dados[mesIdx].variaveis) dados[mesIdx].variaveis = [];
+  dados[mesIdx].variaveis.push({
+    data: hojeStr,
+    hora: horaStr,
+    desc: c.nome + (c.obs ? ' (' + c.obs + ')' : ''),
+    valor: c.valor || '',
+    cat: c.categoria || 'Fixo',
+    formaPgto: '',
+    pago: true,
+    _contaPagarId: id
+  });
+  salvarDados();
+  salvarContasPagar();renderContasPagar();renderSidebar();mostrarToast('Pago! Saída lançada em ' + MESES[mesIdx] + '.');
 }
 function contasPagarExcluir(id) {
   var c=contasPagar.find(function(x){return x.id===id;});
@@ -14212,7 +14324,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.21
+// splash duplicado removido em v5.5.9.25
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
