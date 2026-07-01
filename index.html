@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.28</title>
+<title>ZL Motos v5.5.9.30</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3092,7 +3092,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.28</div>
+  <div class="splash-version">v5.5.9.30</div>
 </div>
 
 <!-- APP -->
@@ -3103,7 +3103,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.28</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.30</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -4657,29 +4657,29 @@ function renderMes(m) {
                       // linha 1: badge + data + hora + checkbox(saida) + excluir
                       + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
                       + '<span style="font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;background:'+cor+'22;color:'+cor+';border:1px solid '+cor+'44;white-space:nowrap">'+(isE?'↑ ENTRADA':'↓ SAÍDA')+'</span>'
-                      + '<input type="date" value="'+(l.data||'')+'" style="font-size:.72rem;padding:3px 6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].data=this.value;recalcular('+m+')"/>'
-                      + '<input type="time" value="'+(l.hora||'')+'" style="font-size:.72rem;padding:3px 6px;width:86px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].hora=this.value;recalcular('+m+')"/>'
+                      + '<input type="date" value="'+(l.data||'')+'" style="font-size:.72rem;padding:3px 6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].data=this.value;recalcular('+m+')" onblur="salvarDados()"/>'
+                      + '<input type="time" value="'+(l.hora||'')+'" style="font-size:.72rem;padding:3px 6px;width:86px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].hora=this.value;recalcular('+m+')" onblur="salvarDados()"/>'
                       + neonChk((l.pago?'checked ':'')+'onchange="var _v=this.checked;dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].pago=_v;salvarDados();recalcular('+m+')"')
                       + '<button class="btn btn-del btn-sm" onclick="confirmarExclusao(\''+descConf+'\',()=>'+fnExcluir+')" style="margin-left:auto">✕</button>'
                       + '</div>'
                       // linha 2: descrição + valor + categoria/forma
                       + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'
-                      + '<input type="text" value="'+(l.desc||'').replace(/"/g,'&quot;')+'" placeholder="Descrição..." style="flex:1;font-size:.8rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].desc=this.value"/>'
-                      + '<input type="number" class="valor" value="'+(l.valor||'')+'" placeholder="0,00" min="0" step="0.01" style="width:90px;font-size:.82rem;font-weight:700;color:'+cor+';padding:4px 8px;background:var(--color-surface);border:1px solid '+cor+'33;border-radius:6px" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].valor=this.value;recalcular('+m+')"/>'
+                      + '<input type="text" value="'+(l.desc||'').replace(/"/g,'&quot;')+'" placeholder="Descrição..." style="flex:1;font-size:.8rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].desc=this.value" onblur="salvarDados()"/>'
+                      + '<input type="number" class="valor" value="'+(l.valor||'')+'" placeholder="0,00" min="0" step="0.01" style="width:90px;font-size:.82rem;font-weight:700;color:'+cor+';padding:4px 8px;background:var(--color-surface);border:1px solid '+cor+'33;border-radius:6px" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].valor=this.value;recalcular('+m+')" onblur="salvarDados()"/>'
                       + '</div>'
                       // linha 3: select de categoria ou forma de pagamento
                       + (isE
-                        ? '<select style="width:100%;font-size:.75rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" onchange="dados['+m+'].entradas['+i+'].formaPgto=this.value;recalcular('+m+')">'
+                        ? '<select style="width:100%;font-size:.75rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" onchange="dados['+m+'].entradas['+i+'].formaPgto=this.value;recalcular('+m+');salvarDados()">'
                           + '<option value=""'+(!l.formaPgto?' selected':'')+'>— Forma de pagamento —</option>'
                           + '<option value="Dinheiro"'+(l.formaPgto==='Dinheiro'?' selected':'')+'>💵 Dinheiro</option>'
                           + '<option value="PIX"'+(l.formaPgto==='PIX'?' selected':'')+'>📱 PIX</option>'
                           + '<option value="Crédito"'+(l.formaPgto==='Crédito'?' selected':'')+'>💳 Crédito</option>'
                           + '<option value="Débito"'+(l.formaPgto==='Débito'?' selected':'')+'>💳 Débito</option>'
                           + '</select>'
-                        : '<select onchange="dados['+m+'].variaveis['+i+'].cat=this.value;recalcular('+m+')" style="width:100%;font-size:.75rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)">'
+                        : '<select onchange="dados['+m+'].variaveis['+i+'].cat=this.value;recalcular('+m+');salvarDados()" style="width:100%;font-size:.75rem;padding:4px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)">'
                           + CATEGORIAS.map(function(c){return '<option value="'+c+'"'+(l.cat===c?' selected':'')+'>'+c+'</option>';}).join('')
                           + '</select>'
-                          + '<select onchange="dados['+m+'].variaveis['+i+'].formaPgto=this.value;recalcular('+m+')" style="width:100%;font-size:.75rem;padding:4px 8px;margin-top:4px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)">'
+                          + '<select onchange="dados['+m+'].variaveis['+i+'].formaPgto=this.value;recalcular('+m+');salvarDados()" style="width:100%;font-size:.75rem;padding:4px 8px;margin-top:4px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)">'
                           + '<option value=""'+(!l.formaPgto?' selected':'')+'>— Forma de pagamento —</option>'
                           + '<option value="Dinheiro"'+(l.formaPgto==='Dinheiro'?' selected':'')+'>💵 Dinheiro</option>'
                           + '<option value="PIX"'+(l.formaPgto==='PIX'?' selected':'')+'>📱 PIX</option>'
@@ -4759,10 +4759,10 @@ function renderMes(m) {
                       var i = mes.fixos.indexOf(f);
                       var nomeConf = (f.nome||'este item').replace(/'/g,'&#39;');
                       return '<tr style="opacity:' + (pago?'.5':'.9') + '">'
-                        + '<td class="col-data"><input type="date" value="' + (f.data||'') + '" oninput="dados[' + m + '].fixos[' + i + '].data=this.value;recalcular(' + m + ')"/></td>'
-                        + '<td style="min-width:90px"><input type="time" value="' + (f.hora||'') + '" style="font-size:.75rem;padding:4px 6px;width:90px" oninput="dados[' + m + '].fixos[' + i + '].hora=this.value;recalcular(' + m + ')"/></td>'
+                        + '<td class="col-data"><input type="date" value="' + (f.data||'') + '" oninput="dados[' + m + '].fixos[' + i + '].data=this.value;recalcular(' + m + ')" onblur="salvarDados()"/></td>'
+                        + '<td style="min-width:90px"><input type="time" value="' + (f.hora||'') + '" style="font-size:.75rem;padding:4px 6px;width:90px" oninput="dados[' + m + '].fixos[' + i + '].hora=this.value;recalcular(' + m + ')" onblur="salvarDados()"/></td>'
                         + '<td><input type="text" class="descricao-fixed" value="' + (f.nome||'').replace(/"/g,'&quot;') + '" oninput="dados[' + m + '].fixos[' + i + '].nome=this.value;recalcular(' + m + ')"/></td>'
-                        + '<td><input type="number" class="valor valor-vermelho" value="' + (f.valor||'') + '" placeholder="0,00" min="0" step="0.01" oninput="dados[' + m + '].fixos[' + i + '].valor=this.value;recalcular(' + m + ')"/></td>'
+                        + '<td><input type="number" class="valor valor-vermelho" value="' + (f.valor||'') + '" placeholder="0,00" min="0" step="0.01" oninput="dados[' + m + '].fixos[' + i + '].valor=this.value;recalcular(' + m + ')" onblur="salvarDados()"/></td>'
                         + '<td style="text-align:center">' + neonChk((f.pago?'checked ':'') + 'onchange="dados[' + m + '].fixos[' + i + '].pago=this.checked;recalcular(' + m + ');salvarDados()"') + '</td>'
                         + '<td class="td-del"><button class="btn btn-del btn-sm" onclick="confirmarExclusao(\'' + nomeConf + '\',()=>removeFixo(' + m + ',' + i + '))">✕</button></td>'
                         + '</tr>';
@@ -7966,7 +7966,7 @@ function renderOrcamento() {
     const sub = (parseFloat(it.qtd)||0) * (parseFloat(it.vunit)||0);
     const isMO = it.cat === 'Mão de Obra';
     return `<tr style="${isMO?'background:rgba(245,158,11,.05);border-left:2px solid rgba(245,158,11,.3)':''}">
-      <td data-label="Descrição"><input type="text" value="${(it.desc||'').replace(/"/g,'&quot;')}" placeholder="Ex: Pastilha de freio..." oninput="orcAtual.itens[${i}].desc=this.value"/></td>
+      <td data-label="Descrição"><input type="text" value="${(it.desc||'').replace(/"/g,'&quot;')}" placeholder="Ex: Pastilha de freio..." oninput="orcAtual.itens[${i}].desc=this.value" onblur="salvarDados()"/></td>
       <td data-label="Cat.">
         <select style="max-width:120px;font-size:.75rem" onchange="orcAtual.itens[${i}].cat=this.value;renderOrcamento()">
           ${['Peça','Mão de Obra','Serviço','Outros'].map(c=>`<option value="${c}"${(it.cat||'Peça')===c?' selected':''}>${c}</option>`).join('')}
@@ -13169,6 +13169,7 @@ async function salvarAgendamentos() {
 // ── PAINEL DO DIA ─────────────────────────────────────────────
 let agDiaSelecionado = null;
 let agBuscaCliente = '';
+let agHoraPre = '';
 
 function agAbrirDia(data) {
   agDiaSelecionado = data;
@@ -14334,7 +14335,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.28
+// splash duplicado removido em v5.5.9.30
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
