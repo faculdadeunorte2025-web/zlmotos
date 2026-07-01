@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.30</title>
+<title>ZL Motos v5.5.9.31</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3092,7 +3092,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.30</div>
+  <div class="splash-version">v5.5.9.31</div>
 </div>
 
 <!-- APP -->
@@ -3103,7 +3103,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.30</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.31</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -5033,6 +5033,7 @@ function addEntrada(m) {
   window._registrarLog('ENTRADA_ADICIONADA', { mes: m, data: hoje });
   salvarDados();
   renderAll();
+  recalcular(m);
   // Abre o grupo do dia de hoje e foca na nova linha
   setTimeout(() => {
     const grpId = 'grp-ent-' + m + '-' + hoje.replace(/-/g,'');
@@ -5059,6 +5060,7 @@ function addVariavel(m) {
   window._registrarLog('SAIDA_ADICIONADA', { mes: m, data: hoje });
   salvarDados();
   renderAll();
+  recalcular(m);
   // Abre o grupo do dia de hoje e foca na nova linha
   setTimeout(() => {
     // Grupo pode ser "a pagar" (não pago)
@@ -14335,7 +14337,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.30
+// splash duplicado removido em v5.5.9.31
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
