@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.25</title>
+<title>ZL Motos v5.5.9.26</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3092,7 +3092,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.25</div>
+  <div class="splash-version">v5.5.9.26</div>
 </div>
 
 <!-- APP -->
@@ -3103,7 +3103,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.25</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.26</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -3950,7 +3950,7 @@ function inicializarDadosLocal() {
     } else {
       dados[m].fixos.forEach(f => { if(!f.data) f.data=''; if(f.pago===undefined) f.pago=false; });
       dados[m].variaveis.forEach(v => { if(!v.data) v.data=''; if(!v.cat) v.cat='Outros'; if(v.pago===undefined) v.pago=false; });
-      dados[m].entradas.forEach(e => { if(!e.data) e.data=''; });
+      dados[m].entradas.forEach(e => { if(!e.data) e.data=''; if(e.pago===undefined) e.pago=true; });
       if(!dados[m].obs) dados[m].obs='';
       // Remover duplicatas automáticamente
       const antesE = dados[m].entradas.length;
@@ -13997,6 +13997,18 @@ function caixaDiaSalvar(m, data, campo, valor) {
   var c = caixaDiaGet(m, data);
   c[campo] = valor;
   salvarDados();
+  // Atualizar totais inline sem re-renderizar
+  var dataId = data.replace(/-/g,'');
+  var elIni = document.getElementById('caixa-ini-total-' + m + '-' + dataId);
+  var elFim = document.getElementById('caixa-fim-total-' + m + '-' + dataId);
+  var elDif = document.getElementById('caixa-dif-' + m + '-' + dataId);
+  var iniT = (parseFloat(c.iniConta)||0) + (parseFloat(c.iniDinheiro)||0);
+  var fimT = (parseFloat(c.fimConta)||0) + (parseFloat(c.fimDinheiro)||0);
+  var dif  = fimT - iniT;
+  var fmt2 = function(v){ return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+  if (elIni) elIni.textContent = fmt2(iniT);
+  if (elFim) elFim.textContent = fmt2(fimT);
+  if (elDif) { elDif.textContent = fmt2(dif); elDif.style.color = dif >= 0 ? '#34d399' : '#fca5a5'; }
 }
 
 function caixaDiaHTML(m, data) {
@@ -14005,48 +14017,46 @@ function caixaDiaHTML(m, data) {
   var f2 = function(v){ return v===''||v===undefined ? '' : parseFloat(v).toFixed(2); };
   var iniTotal = (parseFloat(c.iniConta)||0) + (parseFloat(c.iniDinheiro)||0);
   var fimTotal = (parseFloat(c.fimConta)||0) + (parseFloat(c.fimDinheiro)||0);
+  var dif = fimTotal - iniTotal;
   var dataId = data.replace(/-/g,'');
+  var fmtT = function(v){ return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
 
   return '<div style="background:rgba(96,165,250,.04);border:1px solid rgba(96,165,250,.12);border-radius:10px;padding:10px 12px;margin-bottom:8px">'
-    + '<div style="font-size:.68rem;letter-spacing:1.5px;color:#60a5fa;margin-bottom:8px;font-weight:700">💰 CAIXA DO DIA</div>'
+    + '<div style="font-size:.68rem;letter-spacing:1.5px;color:#60a5fa;margin-bottom:8px;font-weight:700">CAIXA DO DIA</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     + '<div>'
       + '<div style="font-size:.66rem;color:var(--color-text-muted);margin-bottom:4px">CAIXA INICIAL</div>'
       + '<div style="display:flex;gap:6px">'
       + '<div style="flex:1"><label style="font-size:.6rem;color:var(--color-text-muted)">Conta</label>'
       + '<input type="number" step="0.01" min="0" value="' + f2(c.iniConta) + '" placeholder="0,00" '
-      + 'onchange="caixaDiaSalvar(' + m + ',\'' + data + '\',\'iniConta\',this.value);renderMes(' + m + ');setTimeout(function(){var g=document.getElementById(\'grp-ext-' + m + '-' + dataId + '\');if(g)g.style.display=\'\';},50)" '
+      + 'onchange="caixaDiaSalvar(' + m + ',\'' + data + '\',\'iniConta\',this.value)" '
       + 'style="width:100%;font-size:.78rem;padding:4px 6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:#60a5fa"/></div>'
       + '<div style="flex:1"><label style="font-size:.6rem;color:var(--color-text-muted)">Dinheiro</label>'
       + '<input type="number" step="0.01" min="0" value="' + f2(c.iniDinheiro) + '" placeholder="0,00" '
-      + 'onchange="caixaDiaSalvar(' + m + ',\'' + data + '\',\'iniDinheiro\',this.value);renderMes(' + m + ');setTimeout(function(){var g=document.getElementById(\'grp-ext-' + m + '-' + dataId + '\');if(g)g.style.display=\'\';},50)" '
+      + 'onchange="caixaDiaSalvar(' + m + ',\'' + data + '\',\'iniDinheiro\',this.value)" '
       + 'style="width:100%;font-size:.78rem;padding:4px 6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:#60a5fa"/></div>'
       + '</div>'
-      + '<div style="font-size:.7rem;font-weight:700;color:#60a5fa;margin-top:4px">Total: R$ ' + iniTotal.toLocaleString('pt-BR',{minimumFractionDigits:2}) + '</div>'
+      + '<div style="font-size:.7rem;font-weight:700;color:#60a5fa;margin-top:4px" id="caixa-ini-total-' + m + '-' + dataId + '">' + fmtT(iniTotal) + '</div>'
     + '</div>'
     + '<div>'
       + '<div style="font-size:.66rem;color:var(--color-text-muted);margin-bottom:4px">CAIXA FINAL</div>'
       + '<div style="display:flex;gap:6px">'
       + '<div style="flex:1"><label style="font-size:.6rem;color:var(--color-text-muted)">Conta</label>'
       + '<input type="number" step="0.01" min="0" value="' + f2(c.fimConta) + '" placeholder="0,00" '
-      + 'onchange="caixaDiaSalvar(' + m + ',\'' + data + '\',\'fimConta\',this.value);renderMes(' + m + ');setTimeout(function(){var g=document.getElementById(\'grp-ext-' + m + '-' + dataId + '\');if(g)g.style.display=\'\';},50)" '
+      + 'onchange="caixaDiaSalvar(' + m + ',\'' + data + '\',\'fimConta\',this.value)" '
       + 'style="width:100%;font-size:.78rem;padding:4px 6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:#34d399"/></div>'
       + '<div style="flex:1"><label style="font-size:.6rem;color:var(--color-text-muted)">Dinheiro</label>'
       + '<input type="number" step="0.01" min="0" value="' + f2(c.fimDinheiro) + '" placeholder="0,00" '
-      + 'onchange="caixaDiaSalvar(' + m + ',\'' + data + '\',\'fimDinheiro\',this.value);renderMes(' + m + ');setTimeout(function(){var g=document.getElementById(\'grp-ext-' + m + '-' + dataId + '\');if(g)g.style.display=\'\';},50)" '
+      + 'onchange="caixaDiaSalvar(' + m + ',\'' + data + '\',\'fimDinheiro\',this.value)" '
       + 'style="width:100%;font-size:.78rem;padding:4px 6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:#34d399"/></div>'
       + '</div>'
-      + '<div style="font-size:.7rem;font-weight:700;color:#34d399;margin-top:4px">Total: R$ ' + fimTotal.toLocaleString('pt-BR',{minimumFractionDigits:2}) + '</div>'
+      + '<div style="font-size:.7rem;font-weight:700;color:#34d399;margin-top:4px" id="caixa-fim-total-' + m + '-' + dataId + '">' + fmtT(fimTotal) + '</div>'
     + '</div>'
     + '</div>'
-    + (iniTotal>0 || fimTotal>0 ? '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(96,165,250,.1);font-size:.72rem;color:var(--color-text-muted)">Diferença (Final - Inicial): <span style="font-weight:700;color:' + ((fimTotal-iniTotal)>=0?'#34d399':'#fca5a5') + '">R$ ' + (fimTotal-iniTotal).toLocaleString('pt-BR',{minimumFractionDigits:2}) + '</span></div>' : '')
+    + '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(96,165,250,.1);font-size:.72rem;color:var(--color-text-muted)">Diferença: <span id="caixa-dif-' + m + '-' + dataId + '" style="font-weight:700;color:' + (dif>=0?'#34d399':'#fca5a5') + '">' + fmtT(dif) + '</span></div>'
     + '</div>';
 }
 
-
-// ═══════════════════════════════════════════
-// RELATORIO POR FORMA DE PAGAMENTO
-// ═══════════════════════════════════════════
 
 function relatorioFormaPgtoAbrir(m) {
   var existing = document.getElementById('modal-rel-fp');
@@ -14324,7 +14334,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.25
+// splash duplicado removido em v5.5.9.26
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
