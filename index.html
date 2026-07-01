@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.27</title>
+<title>ZL Motos v5.5.9.28</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3092,7 +3092,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.27</div>
+  <div class="splash-version">v5.5.9.28</div>
 </div>
 
 <!-- APP -->
@@ -3103,7 +3103,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.27</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.28</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -4082,7 +4082,7 @@ async function inicializarDados() {
   await estCarregarEntradas();
   // I13 — salvar cache local para modo offline
   _salvarCacheLocal();
-  _dadosCarregados = true;
+  _dadosCarregados = true; // dados principais já carregados — salvarDados() liberado
   _verificarBackupAuto();
   _verificarConexao();
   // Solicitar permissão de notificação após 5 segundos
@@ -4162,12 +4162,9 @@ async function salvarDados() {
     console.warn('ZLMotos: salvarDados() bloqueado — dados ainda não carregados.');
     return;
   }
-  // PROTEÇÃO: nunca salvar dados vazios
-  const totalEntradas = Object.values(dados).reduce((s,m) => s + ((m.entradas||[]).length), 0);
-  const totalVariaveis = Object.values(dados).reduce((s,m) => s + ((m.variaveis||[]).length), 0);
-  const totalFixos = Object.values(dados).reduce((s,m) => s + ((m.fixos||[]).length), 0);
-  if (totalEntradas === 0 && totalVariaveis === 0 && totalFixos === 0) {
-    console.warn('ZLMotos: salvarDados() bloqueado — dados parecem vazios.');
+  // PROTEÇÃO: nunca salvar se não tem nenhum mês inicializado
+  if (!dados || Object.keys(dados).length === 0) {
+    console.warn('ZLMotos: salvarDados() bloqueado — dados não inicializados.');
     return;
   }
   const st = document.getElementById('saveStatus');
@@ -4662,7 +4659,7 @@ function renderMes(m) {
                       + '<span style="font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;background:'+cor+'22;color:'+cor+';border:1px solid '+cor+'44;white-space:nowrap">'+(isE?'↑ ENTRADA':'↓ SAÍDA')+'</span>'
                       + '<input type="date" value="'+(l.data||'')+'" style="font-size:.72rem;padding:3px 6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].data=this.value;recalcular('+m+')"/>'
                       + '<input type="time" value="'+(l.hora||'')+'" style="font-size:.72rem;padding:3px 6px;width:86px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].hora=this.value;recalcular('+m+')"/>'
-                      + neonChk((l.pago?'checked ':'')+'onchange="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].pago=this.checked;recalcular('+m+');salvarDados()"')
+                      + neonChk((l.pago?'checked ':'')+'onchange="var _v=this.checked;dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].pago=_v;salvarDados();recalcular('+m+')"')
                       + '<button class="btn btn-del btn-sm" onclick="confirmarExclusao(\''+descConf+'\',()=>'+fnExcluir+')" style="margin-left:auto">✕</button>'
                       + '</div>'
                       // linha 2: descrição + valor + categoria/forma
@@ -13159,11 +13156,13 @@ const AG_STATUS = {
 const AG_TIPOS = ['Revisão geral','Troca de óleo','Freios','Pneus','Elétrica','Funilaria','Suspensão','Carburador','Corrente','Outro'];
 
 async function salvarAgendamentos() {
+  if (!window._auth || !window._auth.currentUser) { console.warn('Agendamentos: usuário não logado'); return; }
   try {
     const ref = window._userDoc('agendamentos_lista');
     await window._firestoreSetDoc(ref, { lista: agendamentos, horariosBloqueados: agHorariosBloqueados, listaEspera: agListaEspera, atualizadoEm: new Date().toISOString() });
   } catch(e) {
-    mostrarErro('Erro ao salvar agendamento.');
+    console.error('Erro ao salvar agendamento:', e);
+    mostrarErro('Erro ao salvar agendamento: ' + (e.message||e));
   }
 }
 
@@ -14335,7 +14334,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.27
+// splash duplicado removido em v5.5.9.28
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
