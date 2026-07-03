@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.34</title>
+<title>ZL Motos v5.5.9.35</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3028,7 +3028,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.34</div>
+  <div class="splash-version">v5.5.9.35</div>
 </div>
 
 <!-- APP -->
@@ -3039,7 +3039,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.34</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.35</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -4159,7 +4159,7 @@ function calcularMes(m) {
   const totalFixos = mes.fixos.reduce((s,f) => s+(f.pago!==false?num(f.valor):0),0);
   const totalVar   = mes.variaveis.reduce((s,v) => s+(v.pago!==false?num(v.valor):0),0);
   const totalSaidas = totalFixos+totalVar;
-  const totalBruto  = mes.entradas.reduce((s,e) => s+num(e.valor),0);
+  const totalBruto  = mes.entradas.reduce((s,e) => s+(e.pago!==false?num(e.valor):0),0);
   const totalLiquido = totalBruto-totalSaidas;
   const vazio = totalSaidas===0 && totalBruto===0;
   return { totalFixos, totalVar, totalSaidas, totalBruto, totalLiquido, vazio };
@@ -4170,7 +4170,7 @@ function calcularMesComDados(m, mesData) {
   const totalFixos = (mesData.fixos||[]).reduce((s,f) => s+(f.pago!==false?num(f.valor):0),0);
   const totalVar   = (mesData.variaveis||[]).reduce((s,v) => s+(v.pago!==false?num(v.valor):0),0);
   const totalSaidas = totalFixos+totalVar;
-  const totalBruto  = (mesData.entradas||[]).reduce((s,e) => s+num(e.valor),0);
+  const totalBruto  = (mesData.entradas||[]).reduce((s,e) => s+(e.pago!==false?num(e.valor):0),0);
   const totalLiquido = totalBruto-totalSaidas;
   const vazio = totalSaidas===0 && totalBruto===0;
   return { totalFixos, totalVar, totalSaidas, totalBruto, totalLiquido, vazio };
@@ -14315,7 +14315,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.34
+// splash duplicado removido em v5.5.9.35
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
