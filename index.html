@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.36</title>
+<title>ZL Motos v5.5.9.38</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -1858,7 +1858,18 @@ main { flex: 1; padding: 24px 28px; }
 
 /* ═══ FILTRO ═══ */
 
+.filtro-btn {
+  font-size: .72rem;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  color: var(--color-text-muted);
+  transition: all .15s;
+}
 .filtro-btn:hover { border-color: rgba(255,255,255,0.28); color: #fff; background: rgba(255,255,255,0.11); }
+.filtro-btn.ativo { background: rgba(96,165,250,.15); border-color: rgba(96,165,250,.4); color: #60a5fa; }
 .filtro-btn
 
 /* ═══ MODAL ═══ */
@@ -3028,7 +3039,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.36</div>
+  <div class="splash-version">v5.5.9.38</div>
 </div>
 
 <!-- APP -->
@@ -3039,7 +3050,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.36</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.38</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -4955,7 +4966,7 @@ function addEntrada(m) {
   recalcular(m);
   // Abre o grupo do dia de hoje e foca na nova linha
   setTimeout(() => {
-    const grpId = 'grp-ent-' + m + '-' + hoje.replace(/-/g,'');
+    const grpId = 'grp-ext-' + m + '-' + hoje.replace(/-/g,'');
     const grp = document.getElementById(grpId);
     if (grp && grp.style.display === 'none') {
       grp.style.display = '';
@@ -4983,7 +4994,7 @@ function addVariavel(m) {
   // Abre o grupo do dia de hoje e foca na nova linha
   setTimeout(() => {
     // Grupo pode ser "a pagar" (não pago)
-    const grpId = 'grp-var-' + m + '-a-' + hoje.replace(/-/g,'');
+    const grpId = 'grp-ext-' + m + '-' + hoje.replace(/-/g,'');
     const grp = document.getElementById(grpId);
     if (grp && grp.style.display === 'none') {
       grp.style.display = '';
@@ -14289,7 +14300,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.36
+// splash duplicado removido em v5.5.9.38
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
