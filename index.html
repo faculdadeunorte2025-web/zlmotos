@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.35</title>
+<title>ZL Motos v5.5.9.36</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -3028,7 +3028,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.35</div>
+  <div class="splash-version">v5.5.9.36</div>
 </div>
 
 <!-- APP -->
@@ -3039,7 +3039,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.35</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.36</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -4156,10 +4156,10 @@ function num(v) { return parseFloat(v)||0; }
 function calcularMes(m) {
   const mes = dados[m];
   if (!mes) return { totalFixos:0, totalVar:0, totalSaidas:0, totalBruto:0, totalLiquido:0, formaPgtoMap:{} };
-  const totalFixos = mes.fixos.reduce((s,f) => s+(f.pago!==false?num(f.valor):0),0);
-  const totalVar   = mes.variaveis.reduce((s,v) => s+(v.pago!==false?num(v.valor):0),0);
+  const totalFixos = mes.fixos.reduce((s,f) => s+num(f.valor),0);
+  const totalVar   = mes.variaveis.reduce((s,v) => s+num(v.valor),0);
   const totalSaidas = totalFixos+totalVar;
-  const totalBruto  = mes.entradas.reduce((s,e) => s+(e.pago!==false?num(e.valor):0),0);
+  const totalBruto  = mes.entradas.reduce((s,e) => s+num(e.valor),0);
   const totalLiquido = totalBruto-totalSaidas;
   const vazio = totalSaidas===0 && totalBruto===0;
   return { totalFixos, totalVar, totalSaidas, totalBruto, totalLiquido, vazio };
@@ -4167,10 +4167,10 @@ function calcularMes(m) {
 
 function calcularMesComDados(m, mesData) {
   if (!mesData) return { totalFixos:0, totalVar:0, totalSaidas:0, totalBruto:0, totalLiquido:0, vazio:true };
-  const totalFixos = (mesData.fixos||[]).reduce((s,f) => s+(f.pago!==false?num(f.valor):0),0);
-  const totalVar   = (mesData.variaveis||[]).reduce((s,v) => s+(v.pago!==false?num(v.valor):0),0);
+  const totalFixos = (mesData.fixos||[]).reduce((s,f) => s+num(f.valor),0);
+  const totalVar   = (mesData.variaveis||[]).reduce((s,v) => s+num(v.valor),0);
   const totalSaidas = totalFixos+totalVar;
-  const totalBruto  = (mesData.entradas||[]).reduce((s,e) => s+(e.pago!==false?num(e.valor):0),0);
+  const totalBruto  = (mesData.entradas||[]).reduce((s,e) => s+num(e.valor),0);
   const totalLiquido = totalBruto-totalSaidas;
   const vazio = totalSaidas===0 && totalBruto===0;
   return { totalFixos, totalVar, totalSaidas, totalBruto, totalLiquido, vazio };
@@ -4499,32 +4499,6 @@ function renderMes(m) {
     </div>
     <div class="secoes" style="display:flex;flex-direction:column;gap:14px">
 
-      <!-- NÃO PAGOS - topo fixo da aba do mês -->
-      ${(function(){
-        const npEnt = (mes.entradas||[]).map(function(e,idx){ const o={}; for(var k in e) o[k]=e[k]; o._tipo='entrada'; o._idx=idx; return o; }).filter(function(e){ return !e.pago; });
-        const npVar = (mes.variaveis||[]).map(function(v,idx){ const o={}; for(var k in v) o[k]=v[k]; o._tipo='saida'; o._idx=idx; return o; }).filter(function(v){ return !v.pago; });
-        const np = npEnt.concat(npVar).sort(function(a,b){ return (b.data||'').localeCompare(a.data||''); });
-        if (!np.length) return '';
-        const fmtNP = function(v){ return 'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
-        return '<div style="grid-column:1/-1;background:rgba(251,191,36,.04);border:1px solid rgba(251,191,36,.25);border-radius:14px;padding:14px 16px;margin-bottom:8px">'
-          + '<div style="font-size:.65rem;letter-spacing:2px;color:#fbbf24;font-weight:700;margin-bottom:10px">⚠ AGUARDANDO PAGAMENTO (' + np.length + ')</div>'
-          + np.map(function(l){
-            const isE = l._tipo === 'entrada';
-            const cor = isE ? '#34d399' : '#fca5a5';
-            const dataFmt = l.data ? new Date(l.data+'T12:00:00').toLocaleDateString('pt-BR') : '—';
-            return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
-              + neonChk('onchange="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+l._idx+'].pago=this.checked;recalcular('+m+');salvarDados()"')
-              + '<span style="font-size:.75rem;font-weight:700;color:'+cor+'">' + (isE?'↑':'↓') + '</span>'
-              + '<div style="flex:1;min-width:0">'
-              + '<div style="font-size:.82rem;font-weight:600">' + (l.desc||'—') + '</div>'
-              + '<div style="font-size:.68rem;color:var(--color-text-muted)">' + dataFmt + (l.cat?' · '+l.cat:'') + (l.formaPgto?' · '+l.formaPgto:'') + '</div>'
-              + '</div>'
-              + '<div style="font-size:.88rem;font-weight:700;color:'+cor+'">' + fmtNP(l.valor) + '</div>'
-              + '</div>';
-          }).join('')
-          + '</div>';
-      })()}
-
       <!-- EXTRATO UNIFICADO -->
       <div class="secao" style="grid-column:1/-1">
         <div class="secao-header">
@@ -4604,7 +4578,7 @@ function renderMes(m) {
                       + '<span style="font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;background:'+cor+'22;color:'+cor+';border:1px solid '+cor+'44;white-space:nowrap">'+(isE?'↑ ENTRADA':'↓ SAÍDA')+'</span>'
                       + '<input type="date" value="'+(l.data||'')+'" style="font-size:.72rem;padding:3px 6px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].data=this.value;recalcular('+m+')" onblur="salvarDados()"/>'
                       + '<input type="time" value="'+(l.hora||'')+'" style="font-size:.72rem;padding:3px 6px;width:86px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text-primary)" oninput="dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].hora=this.value;recalcular('+m+')" onblur="salvarDados()"/>'
-                      + neonChk((l.pago?'checked ':'')+'onchange="var _v=this.checked;dados['+m+'].'+(isE?'entradas':'variaveis')+'['+i+'].pago=_v;salvarDados();recalcular('+m+')"')
+
                       + '<button class="btn btn-del btn-sm" onclick="confirmarExclusao(\''+descConf+'\',()=>'+fnExcluir+')" style="margin-left:auto">✕</button>'
                       + '</div>'
                       // linha 2: descrição + valor + categoria/forma
@@ -4974,7 +4948,7 @@ function addEntrada(m) {
   const hoje = hojeISO();
   const agora = new Date();
   const hora = agora.getHours().toString().padStart(2,'0') + ':' + agora.getMinutes().toString().padStart(2,'0');
-  dados[m].entradas.push({data: hoje, hora: hora, desc:'', valor:'', formaPgto:'', pago:true});
+  dados[m].entradas.push({data: hoje, hora: hora, desc:'', valor:'', formaPgto:''});
   window._registrarLog('ENTRADA_ADICIONADA', { mes: m, data: hoje });
   salvarDados();
   renderAll();
@@ -5001,7 +4975,7 @@ function addVariavel(m) {
   const hoje = hojeISO();
   const agora = new Date();
   const hora = agora.getHours().toString().padStart(2,'0') + ':' + agora.getMinutes().toString().padStart(2,'0');
-  dados[m].variaveis.push({data: hoje, hora: hora, desc:'', cat:'Outros', valor:'', formaPgto:'', pago:true});
+  dados[m].variaveis.push({data: hoje, hora: hora, desc:'', cat:'Outros', valor:'', formaPgto:''});
   window._registrarLog('SAIDA_ADICIONADA', { mes: m, data: hoje });
   salvarDados();
   renderAll();
@@ -14315,7 +14289,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.35
+// splash duplicado removido em v5.5.9.36
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
