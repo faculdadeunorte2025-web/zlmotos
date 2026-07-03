@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZL Motos v5.5.9.33</title>
+<title>ZL Motos v5.5.9.34</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#C8102E">
@@ -1916,6 +1916,15 @@ main { flex: 1; padding: 24px 28px; }
 
 /* ═══ CONFIRM DELETE ═══ */
 
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .confirm-box {
   position: relative;
   display: flex; flex-direction: column; gap: 8px;
@@ -3019,7 +3028,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
   <button id="zlSkipBtn" style="position:absolute;bottom:28px;right:32px;background:transparent;border:1px solid rgba(201,166,107,.2);color:rgba(201,166,107,.4);font-size:.6rem;letter-spacing:.2em;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">PULAR ▶</button>
 
   <!-- Versão -->
-  <div class="splash-version">v5.5.9.33</div>
+  <div class="splash-version">v5.5.9.34</div>
 </div>
 
 <!-- APP -->
@@ -3030,7 +3039,7 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
       <button id="btn-menu-abrir" onclick="abrirSidebar()" title="Menu">☰</button>
       <div>
         <div class="logo">ZL <span>MOTOS</span></div>
-        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.33</span></div>
+        <div class="header-sub">Sistema de Gestão Financeira <span style="font-size:.55rem;color:rgba(96,165,250,.4);letter-spacing:1px">v5.5.9.34</span></div>
       </div>
     </div>
     <div class="header-right">
@@ -3105,6 +3114,16 @@ footer { border-top: 1px solid var(--color-border); padding: 14px; }
 // ─── SEARCH INPUT HELPER ─────────────────────────────────────────
 var _searchSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
 var _filterSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>';
+// ── Utilitários de formatação ────────────────────────────
+function limparTel(v) { return (v||'').replace(/\D/g,''); }
+function fmtTel(v) {
+  const d = limparTel(v);
+  if (d.length === 11) return '(' + d.slice(0,2) + ') ' + d.slice(2,7) + '-' + d.slice(7);
+  if (d.length === 10) return '(' + d.slice(0,2) + ') ' + d.slice(2,6) + '-' + d.slice(6);
+  return v || '';
+}
+function limparCPFCNPJ(v) { return (v||'').replace(/\D/g,''); }
+
 function searchWrap(inputAttrs, wrapStyle) {
   var ws = wrapStyle ? ' style="' + wrapStyle + '"' : '';
   return '<div class="search-wrap"' + ws + '>'
@@ -5548,7 +5567,7 @@ function renderConfiguracoes() {
           </div>
           <div class="orc-field">
             <label>📞 Telefone</label>
-            <input type="text" value="${empresa.telefone||''}" placeholder="(17) 99999-9999" oninput="empresa.telefone=this.value"/>
+            <input type="text" value="${empresa.telefone||''}" placeholder="(17) 99999-9999" oninput="empresa.telefone=limparTel(this.value)"/>
           </div>
           <div class="orc-field">
             <label>📧 E-mail</label>
@@ -7944,7 +7963,7 @@ function renderOrcamento() {
           </div>
           <div class="orc-field">
             <label>📞 Telefone</label>
-            <input type="text" value="${(orcAtual.telefone||'').replace(/"/g,'&quot;')}" placeholder="(11) 99999-9999..." oninput="orcAtual.telefone=this.value"/>
+            <input type="text" value="${(orcAtual.telefone||'').replace(/"/g,'&quot;')}" placeholder="(11) 99999-9999..." oninput="orcAtual.telefone=limparTel(this.value)"/>
           </div>
           <div class="orc-field">
             <label>🏍️ Veículo / Modelo</label>
@@ -8368,7 +8387,7 @@ function vendaAbrirModalNovoCliente() {
 
 async function vendaSalvarNovoCliente() {
   const nome = (document.getElementById('vnd-cli-nome')?.value||'').trim();
-  const tel  = (document.getElementById('vnd-cli-tel')?.value||'').trim();
+  const tel  = limparTel(document.getElementById('vnd-cli-tel')?.value || '');
   const veic = (document.getElementById('vnd-cli-veic')?.value||'').trim();
   if (!nome) { mostrarToast('Informe o nome'); return; }
   const id = 'cli_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
@@ -10554,7 +10573,7 @@ function renderOSDetalhe(os) {
       </div>
       <div class="orc-field">
         <label>📞 Telefone</label>
-        <input type="text" value="${(os.telefone||'').replace(/"/g,'&quot;')}" placeholder="(11) 99999-9999" oninput="osSalvarCampo('${os.id}','telefone',this.value)"/>
+        <input type="text" value="${(os.telefone||'').replace(/"/g,'&quot;')}" placeholder="(11) 99999-9999" oninput="osSalvarCampo('${os.id}','telefone',limparTel(this.value))"/>
       </div>
       <div class="orc-field">
         <label>🏍️ Veículo</label>
@@ -12259,7 +12278,7 @@ function clienteFecharModal() {
 
 async function clienteSalvarModal() {
   const nome       = (document.getElementById('cli-nome')?.value      || '').trim();
-  const tel        = (document.getElementById('cli-tel')?.value       || '').trim();
+  const tel        = limparTel(document.getElementById('cli-tel')?.value || '');
   const cpf        = (document.getElementById('cli-cpf')?.value       || '').trim();
   const veic       = (document.getElementById('cli-veic')?.value      || '').trim();
   const placa      = (document.getElementById('cli-placa')?.value     || '').trim().toUpperCase();
@@ -13554,7 +13573,7 @@ function renderAgendamentos() {
         + '<div class="orc-field"><label>📅 Data</label><input type="date" value="' + ag.data + '" oninput="agSalvarCampo(\'' + ag.id + '\',\'data\',this.value);renderAgendamentos()"/></div>'
         + '<div class="orc-field"><label>⏰ Hora</label><input type="time" value="' + (ag.hora||'08:00') + '" oninput="agSalvarCampo(\'' + ag.id + '\',\'hora\',this.value)"/></div>'
         + '<div class="orc-field"><label>👤 Cliente</label><input type="text" value="' + (ag.cliente||'').replace(/"/g,'&quot;') + '" placeholder="Nome do cliente..." oninput="agSalvarCampo(\'' + ag.id + '\',\'cliente\',this.value)"/></div>'
-        + '<div class="orc-field"><label>📞 Telefone</label><input type="text" value="' + (ag.telefone||'').replace(/"/g,'&quot;') + '" placeholder="(17) 99999-9999" oninput="agSalvarCampo(\'' + ag.id + '\',\'telefone\',this.value)"/></div>'
+        + '<div class="orc-field"><label>📞 Telefone</label><input type="text" value="' + (ag.telefone||'').replace(/"/g,'&quot;') + '" placeholder="(17) 99999-9999" oninput="agSalvarCampo(\'' + ag.id + '\',\'telefone\',limparTel(this.value))"/></div>'
         + '<div class="orc-field"><label>🏍️ Veículo</label><input type="text" value="' + (ag.veiculo||'').replace(/"/g,'&quot;') + '" placeholder="Modelo..." oninput="agSalvarCampo(\'' + ag.id + '\',\'veiculo\',this.value)"/></div>'
         + '<div class="orc-field"><label>🔖 Placa</label><input type="text" value="' + (ag.placa||'').replace(/"/g,'&quot;') + '" placeholder="ABC-1234" style="text-transform:uppercase" oninput="agSalvarCampo(\'' + ag.id + '\',\'placa\',this.value.toUpperCase());this.value=this.value.toUpperCase()"/></div>'
         + '<div class="orc-field"><label>🔧 Tipo de Serviço</label><select onchange="agSalvarCampo(\'' + ag.id + '\',\'tipo\',this.value)">' + optsTipo + '</select></div>'
@@ -14296,7 +14315,7 @@ function orcRegistrarPagamento(id) {
   // Fallback máximo
   setTimeout(enterApp, 11000);
 })();
-// splash duplicado removido em v5.5.9.33
+// splash duplicado removido em v5.5.9.34
 
 // ── PWA: SERVICE WORKER ────────────────────────────────
 if ('serviceWorker' in navigator) {
