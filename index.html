@@ -4100,9 +4100,10 @@ async function inicializarDados() {
     }
 
 
-    const refCli  = window._userDoc('clientes_manuais');
-    const snapCli = await window._firestoreGetDoc(refCli);
-    if (snapCli.exists()) clientesCadastradosManuais = snapCli.data().lista || [];
+    // Clientes são carregados por carregarClientesManuais() logo abaixo,
+    // direto da coleção 'clientes' (fonte atual). O doc legado 'clientes_manuais'
+    // não é mais gravado por nenhuma função de salvar e ficava sobrescrevendo
+    // a lista com uma foto antiga — por isso não é mais lido aqui.
 
     await carregarContasPagar();
 
@@ -4118,13 +4119,13 @@ async function inicializarDados() {
   }
   await carregarEmpresa();
   await carregarFilaMotos();
+  await carregarClientesManuais();
   inicializarDadosLocal();
   catCarregarDoEstoque();
   renderAll();
   agVerificarLembretes();
   estVerificarReposicao();
   orcVerificarAprovacaoURL();
-  carregarClientesManuais();
   osIniciarListenerTempoReal(); // RF01 — sincronização em tempo real
   iniciarListenersTempoReal();  // ← NOVO: todos os outros dados
   await categoriasCarregar();
