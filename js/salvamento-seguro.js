@@ -152,8 +152,11 @@ export function instalarSalvamentoSeguro(originais) {
         if (mudou) console.info('ZLMotos: alterações de outro aparelho foram mantidas em', path);
       }
     }
-    await fb.setDoc(ref, payload, opts);
-    base[path] = copia(payload);
+    // Fotografa o que vai para o servidor ANTES de esperar a resposta: enquanto
+    // a gravação viaja, a tela pode mudar o payload (ele é a lista viva).
+    const enviado = copia(payload);
+    await fb.setDoc(ref, enviado, opts);
+    base[path] = enviado;
     if (mudou && typeof window._aposJuntarDados === 'function') {
       try { window._aposJuntarDados(path.split('/')[3]); } catch (e) { console.warn(e); }
     }
