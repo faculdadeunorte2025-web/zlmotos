@@ -14,14 +14,14 @@
 //   4. só então grava — e atualiza a tela com o resultado.
 // Se estiver sem internet, guarda na fila e grava sozinho quando voltar.
 // ═══════════════════════════════════════════════════════════════════
-(function () {
   // Documentos que são listas inteiras e precisam de junção segura.
   const CHAVES_LISTA = /^(zlmotos_\d{4}|orcamentos_lista|os_lista|estoque_global|ferramental_global|contas_pagar|vendas_historico|est_entradas|fornecedores|categorias_mes|agendamentos_lista)$/;
 
+export function instalarSalvamentoSeguro(originais) {
   const base = {};          // caminho -> última versão vista do servidor (cópia)
   const filas = {};         // caminho -> Promise (grava um de cada vez por documento)
   const pendentes = {};     // caminho -> { ref, payload } aguardando internet
-  let fb = null;            // { setDoc, getDoc, onSnapshot } originais
+  const fb = originais;     // { setDoc, getDoc, onSnapshot } originais
 
   const copia = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
 
@@ -214,19 +214,13 @@
     if (Object.keys(pendentes).length) { e.preventDefault(); e.returnValue = 'Há dados ainda não enviados ao servidor.'; }
   });
 
-  window._instalarSalvamentoSeguro = function (originais) {
-    fb = originais;
-    window._firestoreSetDoc = setDocSeguro;
-    window._firestoreGetDoc = getDocSeguro;
-    window._firestoreOnSnapshot = onSnapshotSeguro;
-  };
-  window._salvamentoSeguro = {
+  return {
+    setDoc: setDocSeguro, getDoc: getDocSeguro, onSnapshot: onSnapshotSeguro,
     pendentes: () => Object.keys(pendentes).length,
     gravarPendentes,
-    // Gravação que SUBSTITUI de propósito (ex.: migração entre anos), sem juntar
     gravarSubstituindo: async (ref, payload) => { await fb.setDoc(ref, payload); base[ref.path] = copia(payload); },
     limpar: () => { Object.keys(base).forEach(k => delete base[k]); Object.keys(pendentes).forEach(k => delete pendentes[k]); },
-    // exposto para testes
     _juntarLista: juntarLista, _juntarDadosAno: juntarDadosAno
   };
-})();
+}
+
