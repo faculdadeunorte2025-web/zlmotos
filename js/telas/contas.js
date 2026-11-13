@@ -22,16 +22,17 @@ export function tela() {
   const pagas = S.contas.filter(c => c.status === 'pago').sort((a, b) => String(b.pagoEm || '').localeCompare(String(a.pagoEm || ''))).slice(0, 15);
   const vencidas = pend.filter(c => c.vencimento < hoje);
   const breve = pend.filter(c => c.vencimento >= hoje && c.vencimento <= lim);
+  const rsM = window.zlSocorro, rsAberto = rsM && rsM.RS.estado === 'ok' ? rsM.totalAbertoSocorro() : 0;
   const situ = c => c.vencimento < hoje ? `<span class="neg">Venceu em ${dataBR(c.vencimento)}</span>` : c.vencimento === hoje ? '<span class="neg">Vence hoje</span>' : 'Vence em ' + dataBR(c.vencimento);
   return `
   <div class="cabecalho">
-    <div><h1>Contas a pagar</h1><div class="sub">${pend.length} pendente(s)</div></div>
+    <div><h1>Contas a pagar</h1><div class="sub">${pend.length} pendente(s)${rsAberto ? ` + ${rsM.abertasSocorro().length} corrida(s) do RS Socorro` : ''}</div></div>
     <div class="acoes"><button class="btn btn-primario" data-acao="nova-conta">${icone('mais')} Nova conta</button></div>
   </div>
   <div class="indicadores">
     <div class="indicador"><div class="rotulo">Vencidas</div><div class="valor ${vencidas.length ? 'neg' : ''}">${vencidas.length}</div><div class="detalhe">${moeda(vencidas.reduce((s, c) => s + num(c.valor), 0))}</div></div>
     <div class="indicador"><div class="rotulo">Vencem em até 2 dias</div><div class="valor">${breve.length}</div></div>
-    <div class="indicador"><div class="rotulo">Total pendente</div><div class="valor">${moeda(pend.reduce((s, c) => s + num(c.valor), 0))}</div></div>
+    <div class="indicador"><div class="rotulo">Total pendente</div><div class="valor">${moeda(pend.reduce((s, c) => s + num(c.valor), 0) + rsAberto)}</div>${rsAberto ? `<div class="detalhe">inclui ${moeda(rsAberto)} do RS Socorro</div>` : ''}</div>
   </div>
   ${secaoSocorro()}
   <div class="caixa"><div class="lista">
