@@ -253,3 +253,5 @@ input[type=date]::-webkit-calendar-picker-indicator, input[type=time]::-webkit-c
   .indicador .valor { font-size: 1.05rem; }
   .avisos { bottom: calc(76px + env(safe-area-inset-bottom)); width: calc(100% - 32px); }
 }
+.progresso.dupla { background: var(--borda-forte); height: 8px; }
+.tabela td.mono, .tabela td .pos, .tabela td .neg { white-space: nowrap; }
