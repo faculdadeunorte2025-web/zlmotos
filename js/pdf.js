@@ -45,7 +45,8 @@ function rodapePaginas(doc, texto) {
   }
 }
 
-export function orcamentoPDF(o) {
+// opcoes.compartilhar: no celular abre o menu de compartilhar (WhatsApp etc.) com o PDF anexado.
+export function orcamentoPDF(o, opcoes = {}) {
   if (!o || !String(o.cliente || '').trim()) return erro('Informe o nome do cliente antes de gerar o PDF.');
   const doc = novoDoc(); if (!doc) return;
   const t = totalOrcamento(o);
@@ -134,8 +135,21 @@ export function orcamentoPDF(o) {
   doc.text('Assinatura do cliente', M, y + 4.5); doc.text('Responsável pela oficina', 115, y + 4.5);
 
   rodapePaginas(doc, `${(S.empresa && S.empresa.nomeFantasia) || 'ZL Motos'} · orçamento emitido em ${new Date().toLocaleDateString('pt-BR')}`);
-  baixar(doc, `Orcamento_${nomeArquivo(o.cliente)}_${data}.pdf`);
+  const nome = `Orcamento_${nomeArquivo(o.cliente)}_${data}.pdf`;
+  if (opcoes.compartilhar && podeCompartilharArquivo()) {
+    const arquivo = new File([doc.output('blob')], nome, { type: 'application/pdf' });
+    navigator.share({ files: [arquivo], title: 'Orçamento', text: opcoes.texto || '' }).catch(() => {});
+    return 'compartilhado';
+  }
+  baixar(doc, nome);
   aviso('PDF gerado');
+  return 'baixado';
+}
+
+// Celular com menu de compartilhar que aceita arquivos (Android/iPhone).
+export function podeCompartilharArquivo() {
+  try { return !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'a.pdf', { type: 'application/pdf' })] })) && matchMedia('(pointer: coarse)').matches; }
+  catch (e) { return false; }
 }
 
 export function relatorioMensalPDF(m) {

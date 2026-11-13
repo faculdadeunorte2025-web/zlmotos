@@ -232,3 +232,33 @@ export async function salvarEmpresa() {
 export async function salvarCategorias() {
   await gravar(docUsuario('categorias_mes'), { lista: S.categorias, atualizadoEm: new Date().toISOString() });
 }
+
+// Copia as contas fixas do mês anterior para o mês m (do ano aberto).
+// Não duplica: pula as que já têm valor no mês. Retorna { n } ou { erro }.
+export function copiarFixas(m) {
+  if (!S.carregado) return { erro: 'Ainda carregando os dados.' };
+  const ant = m === 0 ? (S.dadosAnoAnterior && S.dadosAnoAnterior[11]) : S.dados[m - 1];
+  if (!ant || !(ant.fixos || []).some(f => num(f.valor))) return { erro: 'O mês anterior não tem contas fixas.' };
+  const atuais = S.dados[m].fixos;
+  const igual = (a, b) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
+  let n = 0;
+  ant.fixos.forEach(f => {
+    if (!f.nome || !num(f.valor) || atuais.some(a => igual(a.nome, f.nome) && num(a.valor))) return;
+    const vazio = atuais.find(a => igual(a.nome, f.nome));
+    const dia = f.data ? f.data.slice(8, 10) : '';
+    const ult = new Date(S.ano, m + 1, 0).getDate();
+    const data = dia ? `${S.ano}-${String(m + 1).padStart(2, '0')}-${String(Math.min(+dia, ult)).padStart(2, '0')}` : '';
+    if (vazio) Object.assign(vazio, { valor: f.valor, data, pago: false });
+    else atuais.push({ nome: f.nome, valor: f.valor, data, pago: false, _id: gerarId('f') });
+    n++;
+  });
+  if (n) salvarLancamentos();
+  return { n };
+}
+
+// O mês m ainda não tem fixas lançadas, mas o anterior tem?
+export function faltamFixas(m) {
+  const tem = d => d && (d.fixos || []).some(f => num(f.valor));
+  const ant = m === 0 ? (S.dadosAnoAnterior && S.dadosAnoAnterior[11]) : S.dados[m - 1];
+  return S.carregado && !tem(S.dados[m]) && tem(ant);
+}
