@@ -2,7 +2,7 @@
 import { S, salvarOrcamento, excluirOrcamento, totalOrcamento, orcAceito, orcRecusado, salvarCliente } from '../dados.js';
 import { registrarLog } from '../firebase.js';
 import { moeda, num, esc, hojeISO, somaDias, dataBR, diasDesde, gerarId, copia, abrirModal, fecharModal, confirmar, aviso, erro, icone, lerForm, linkWhats, soNumeros } from '../util.js';
-import { orcamentoPDF } from '../pdf.js';
+import { orcamentoPDF, podeCompartilharArquivo } from '../pdf.js';
 
 const STATUS = {
   pendente: { nome: 'Pendente' },
@@ -11,6 +11,9 @@ const STATUS = {
   recusado: { nome: 'Recusado', cls: 'neg' },
 };
 const statusDe = o => orcAceito(o) ? 'aceito' : orcRecusado(o) ? 'recusado' : (o.status === 'enviado' ? 'enviado' : 'pendente');
+const aberto = o => { const s = statusDe(o); return (s === 'pendente' || s === 'enviado') && !o.arquivado; };
+// Em aberto e já passou da validade (sem validade: mais de 7 dias)
+export const vencido = o => aberto(o) && ((o.validade && o.validade < hojeISO()) || (!o.validade && diasDesde(o.criadoEm || o.data) > 7));
 
 let filtro = 'abertos';
 let termo = '';
@@ -29,17 +32,19 @@ export function tela(param) {
 
 // ── Lista ───────────────────────────────────────────────────────────
 function lista() {
-  const cont = { abertos: 0, aceitos: 0, receber: 0, recusados: 0, todos: S.orcamentos.length };
-  S.orcamentos.forEach(o => { const s = statusDe(o); if (s === 'pendente' || s === 'enviado') cont.abertos++; if (s === 'aceito') cont.aceitos++; if (s === 'aceito' && !o.pago) cont.receber++; if (s === 'recusado') cont.recusados++; });
+  const cont = { abertos: 0, aceitos: 0, receber: 0, recusados: 0, arquivados: 0, todos: S.orcamentos.length };
+  S.orcamentos.forEach(o => { const s = statusDe(o); if (o.arquivado) cont.arquivados++; if (aberto(o)) cont.abertos++; if (s === 'aceito') cont.aceitos++; if (s === 'aceito' && !o.pago) cont.receber++; if (s === 'recusado') cont.recusados++; });
   let itens = S.orcamentos.filter(o => {
     const s = statusDe(o);
-    if (filtro === 'abertos') return s === 'pendente' || s === 'enviado';
+    if (filtro === 'abertos') return aberto(o);
+    if (filtro === 'arquivados') return !!o.arquivado;
     if (filtro === 'aceitos') return s === 'aceito';
     if (filtro === 'receber') return s === 'aceito' && !o.pago;
     if (filtro === 'recusados') return s === 'recusado';
     return true;
   });
   if (termo) { const q = termo.toLowerCase(); itens = itens.filter(o => [o.cliente, o.veiculo, o.placa, o.telefone].join(' ').toLowerCase().includes(q)); }
+  const nVenc = S.orcamentos.filter(vencido).length;
   const soma = itens.reduce((s, o) => s + totalOrcamento(o).total, 0);
   const chip = (k, n) => `<button class="filtro ${filtro === k ? 'ativo' : ''}" data-acao="filtro-orc" data-f="${k}">${n} <span class="mudo">${cont[k]}</span></button>`;
 
@@ -50,9 +55,10 @@ function lista() {
   </div>
   <div class="caixa">
     <div class="filtros">
-      ${chip('abertos', 'Em aberto')}${chip('aceitos', 'Aceitos')}${chip('receber', 'A receber')}${chip('recusados', 'Recusados')}${chip('todos', 'Todos')}
+      ${chip('abertos', 'Em aberto')}${chip('aceitos', 'Aceitos')}${chip('receber', 'A receber')}${chip('recusados', 'Recusados')}${cont.arquivados ? chip('arquivados', 'Arquivados') : ''}${chip('todos', 'Todos')}
       <input type="search" class="busca" placeholder="Cliente, moto ou placa…" value="${esc(termo)}" data-digitar="busca-orc" data-sem-redesenho>
     </div>
+    ${filtro === 'abertos' && nVenc ? `<div class="faixa" style="display:flex;align-items:center;gap:10px;margin:0 0 10px"><span style="flex:1"><b>${nVenc}</b> orçamento(s) em aberto já passaram da validade.</span><button class="btn btn-p" data-acao="arquivar-vencidos">Arquivar vencidos</button></div>` : ''}
     <div class="lista">
       ${itens.length ? itens.map(o => {
         const s = statusDe(o), t = totalOrcamento(o).total, pago = num(o.valorPago);
@@ -60,10 +66,10 @@ function lista() {
         return `<div class="linha clicavel" data-acao="ir" data-tela="orcamentos" data-p="${esc(o.id)}">
           <div class="principal">
             <div class="titulo">${esc(o.cliente || 'Sem cliente')}</div>
-            <div class="meta">${esc([o.veiculo, o.placa].filter(Boolean).join(' · ') || '—')} · ${dataBR(o.data || o.criadoEm)}${(s === 'pendente' || s === 'enviado') && dias >= 3 ? ` · há ${dias} dias` : ''}</div>
+            <div class="meta">${esc([o.veiculo, o.placa].filter(Boolean).join(' · ') || '—')} · ${dataBR(o.data || o.criadoEm)}${aberto(o) && dias >= 3 ? ` · há ${dias} dias` : ''}</div>
           </div>
           ${s === 'aceito' ? `<span class="etiqueta ${o.pago ? 'pos' : 'forte'}">${o.pago ? 'Pago' : pago > 0 ? 'Pago ' + moeda(pago) : 'A receber'}</span>` : ''}
-          <span class="etiqueta ${STATUS[s].cls || ''}">${STATUS[s].nome}</span>
+          ${o.arquivado ? '<span class="etiqueta">Arquivado</span>' : `<span class="etiqueta ${STATUS[s].cls || ''}">${STATUS[s].nome}</span>`}
           <div class="valor">${moeda(t)}</div>
         </div>`;
       }).join('') : '<div class="vazio">Nenhum orçamento aqui.</div>'}
@@ -151,6 +157,7 @@ function formulario() {
 
   ${!o._novo ? `<div class="acoes" style="margin-top:16px">
     <button class="btn btn-fantasma" data-acao="duplicar-orc">${icone('copiar')} Duplicar</button>
+    ${o.arquivado || s === 'pendente' || s === 'enviado' ? `<button class="btn btn-fantasma" data-acao="arquivar-orc">${o.arquivado ? 'Desarquivar' : 'Arquivar'}</button>` : ''}
     <button class="btn btn-perigo" data-acao="excluir-orc" style="margin-left:auto">${icone('lixo')} Excluir orçamento</button>
   </div>` : ''}`;
 }
@@ -208,8 +215,18 @@ export const acoes = {
     sujo = true; window.zlDesenhar();
   },
   'pdf-orc': () => orcamentoPDF(atual),
+  'arquivar-orc': async () => { atual.arquivado = !atual.arquivado; await salvar(atual.arquivado ? 'Orçamento arquivado' : 'Orçamento voltou para a lista'); },
+  'arquivar-vencidos': async () => {
+    const vs = S.orcamentos.filter(vencido);
+    if (!vs.length) return;
+    if (!(await confirmar(`Arquivar ${vs.length} orçamento(s) em aberto que já passaram da validade? Eles saem da lista "Em aberto" e dos avisos, mas continuam guardados em "Arquivados".`, { botao: 'Arquivar' }))) return;
+    for (const o of vs) await salvarOrcamento({ ...copia(o), arquivado: true });
+    aviso(vs.length + ' orçamento(s) arquivado(s)'); window.zlDesenhar();
+  },
   'whats-orc': () => {
-    window.open(linkWhats(atual.telefone, textoWhats(atual)), '_blank');
+    // Celular: manda o PDF anexado pelo menu de compartilhar. Computador: abre o WhatsApp com o texto.
+    if (podeCompartilharArquivo()) orcamentoPDF(atual, { compartilhar: true, texto: `Olá! Segue o orçamento da ${S.empresa.nomeFantasia || 'ZL Motos'}.` });
+    else window.open(linkWhats(atual.telefone, textoWhats(atual)), '_blank');
     if (statusDe(atual) === 'pendente') { atual.status = 'enviado'; salvar('Marcado como enviado'); }
   },
   'pagar-orc': () => {

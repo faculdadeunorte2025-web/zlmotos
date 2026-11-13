@@ -1,5 +1,7 @@
 // Tela inicial: meta, números do mês, avisos e gráfico dos últimos 6 meses.
-import { S, calcMes, orcAceito } from '../dados.js';
+import { S, calcMes, orcAceito, copiarFixas, faltamFixas, salvarConfig } from '../dados.js';
+import { retornosOleo, comparativo, servicosQueMaisRendem } from '../analise.js';
+import { aviso, erro } from '../util.js';
 import { MESES, MESES_CURTO, moeda, moedaCurta, num, hojeISO, somaDias, diasDesde, esc } from '../util.js';
 
 export function tela() {
@@ -8,7 +10,7 @@ export function tela() {
   const anoAtual = hoje.getFullYear() === S.ano;
   const c = anoAtual ? calcMes(mes) : { entradas: 0, saidas: 0, resultado: 0 };
   const meta = num(S.config.metaMensal);
-  const pend = S.orcamentos.filter(o => (o.status || 'pendente') === 'pendente' || o.status === 'enviado');
+  const pend = S.orcamentos.filter(o => ((o.status || 'pendente') === 'pendente' || o.status === 'enviado') && !o.arquivado);
   const valorPend = pend.reduce((s, o) => s + num(o.calc && o.calc.total), 0);
 
   // Avisos
@@ -22,6 +24,8 @@ export function tela() {
   const parados = pend.filter(o => diasDesde(o.criadoEm || o.data) >= 3);
   if (parados.length) avisos.push({ tela: 'orcamentos', txt: `<b>${parados.length} orçamento${parados.length > 1 ? 's' : ''}</b> sem resposta há mais de 3 dias` });
   const aReceber = S.orcamentos.filter(o => orcAceito(o) && !o.pago);
+  const retornos = anoAtual ? retornosOleo() : [];
+  if (retornos.length) avisos.push({ tela: 'clientes', p: 'retornos', txt: `<b>${retornos.length} cliente${retornos.length > 1 ? 's' : ''}</b> na hora de trocar o óleo` });
   if (aReceber.length) avisos.push({ tela: 'orcamentos', txt: `<b>${aReceber.length} orçamento${aReceber.length > 1 ? 's' : ''} aceito${aReceber.length > 1 ? 's' : ''}</b> ainda não pago${aReceber.length > 1 ? 's' : ''}` });
 
   return `
@@ -48,14 +52,54 @@ export function tela() {
     <div class="progresso"><div style="width:${p}%"></div></div>
   </div>`; })() : ''}
 
-  ${avisos.length ? `<div style="margin-bottom:14px">${avisos.map(a => `<div class="alerta" data-acao="ir" data-tela="${a.tela}"><span class="ponto ${a.neg ? 'neg' : ''}"></span><span style="flex:1">${a.txt}</span><span class="mudo">Ver</span></div>`).join('')}</div>` : ''}
+  ${anoAtual && faltamFixas(mes) && S.config.fixasIgnoradas !== `${S.ano}-${mes}` ? `<div class="faixa" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+    <span style="flex:1">${MESES[mes]} ainda não tem as contas fixas lançadas. Copiar as de ${MESES[(mes + 11) % 12]}?</span>
+    <button class="btn btn-p btn-fantasma" data-acao="ignorar-fixas">Agora não</button><button class="btn btn-p btn-primario" data-acao="copiar-fixas-inicio">Copiar fixas</button></div>` : ''}
+
+  ${avisos.length ? `<div style="margin-bottom:14px">${avisos.map(a => `<div class="alerta" data-acao="ir" data-tela="${a.tela}" ${a.p ? `data-p="${a.p}"` : ''}><span class="ponto ${a.neg ? 'neg' : ''}"></span><span style="flex:1">${a.txt}</span><span class="mudo">Ver</span></div>`).join('')}</div>` : ''}
 
   <div class="caixa">
     <div class="caixa-titulo"><h2>Últimos 6 meses</h2>
       <div class="legenda"><span><i style="background:var(--positivo)"></i>Entradas</span><span><i style="background:var(--negativo)"></i>Saídas</span></div></div>
     ${grafico()}
+  </div>
+  ${anoAtual ? comparativoHTML(mes) : ''}`;
+}
+
+// inverso: para saídas, subir é ruim (vermelho) e cair é bom (verde)
+const varia = (a, b, inverso) => {
+  if (!b) return '<span class="mudo">—</span>';
+  const p = Math.round((a - b) / Math.abs(b) * 100);
+  return `<span class="${(p >= 0) !== !!inverso ? 'pos' : 'neg'}">${p >= 0 ? '+' : ''}${p}%</span>`;
+};
+function comparativoHTML(m) {
+  const c = comparativo(m), mAnt = (m + 11) % 12;
+  const col = (r, v) => v ? `<td class="mono">${moeda(v[r])}</td>` : '<td class="mudo">sem dados</td>';
+  const linha = (rot, r) => `<tr><td>${rot}</td><td class="mono"><b>${moeda(c.atual[r])}</b></td>${col(r, c.anterior)}<td>${c.anterior ? varia(c.atual[r], c.anterior[r], r === 'saidas') : ''}</td>${col(r, c.anoPassado)}<td>${c.anoPassado ? varia(c.atual[r], c.anoPassado[r], r === 'saidas') : ''}</td></tr>`;
+  const tot = c.pecas + c.mao, top = servicosQueMaisRendem();
+  return `
+  <div class="caixa" style="margin-top:14px">
+    <div class="caixa-titulo"><h2>Comparativo</h2><span class="mudo" style="font-size:.8rem">${MESES[m]} até hoje</span></div>
+    <div style="overflow-x:auto"><table class="tabela">
+      <thead><tr><th></th><th>${MESES[m]}</th><th>${MESES[mAnt]}</th><th></th><th>${MESES[m]} ${S.ano - 1}</th><th></th></tr></thead>
+      <tbody>${linha('Entradas', 'entradas')}${linha('Saídas', 'saidas')}${linha('Resultado', 'resultado')}</tbody>
+    </table></div>
+    ${tot ? `<div style="margin-top:14px"><div class="mudo" style="font-size:.8rem;margin-bottom:6px">Orçamentos aceitos em ${MESES[m]} (${c.qtd}): de onde veio o valor</div>
+      <div class="progresso dupla"><div style="width:${Math.round(c.mao / tot * 100)}%"></div></div>
+      <div class="legenda" style="margin-top:6px"><span><i style="background:var(--texto)"></i>Mão de obra ${moeda(c.mao)} (${Math.round(c.mao / tot * 100)}%)</span><span><i style="background:var(--borda-forte)"></i>Peças ${moeda(c.pecas)}</span></div></div>` : ''}
+    ${top.length ? `<div style="margin-top:16px"><div class="mudo" style="font-size:.8rem;margin-bottom:6px">Serviços que mais faturaram em ${S.ano} (mão de obra, orçamentos aceitos)</div>
+      <div class="lista">${top.map(t => `<div class="linha"><div class="principal"><div class="titulo">${esc(t.nome)}</div><div class="meta">${t.vezes} vez(es)</div></div><div class="valor">${moeda(t.total)}</div></div>`).join('')}</div></div>` : ''}
   </div>`;
 }
+
+export const acoes = {
+  'copiar-fixas-inicio': () => {
+    const r = copiarFixas(new Date().getMonth());
+    if (r.erro) return erro(r.erro);
+    aviso(r.n ? r.n + ' conta(s) fixa(s) copiada(s)' : 'As contas fixas já estão neste mês.'); window.zlDesenhar();
+  },
+  'ignorar-fixas': async () => { await salvarConfig({ fixasIgnoradas: `${S.ano}-${new Date().getMonth()}` }); window.zlDesenhar(); },
+};
 
 function grafico() {
   const hoje = new Date();

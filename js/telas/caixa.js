@@ -1,5 +1,5 @@
 // Caixa: lançamentos do mês (entradas, saídas e contas fixas).
-import { S, calcMes, salvarLancamentos, trocarAno, garantirMeses } from '../dados.js';
+import { S, calcMes, salvarLancamentos, trocarAno, garantirMeses, copiarFixas } from '../dados.js';
 import { registrarLog } from '../firebase.js';
 import { MESES, FORMAS, moeda, num, esc, hojeISO, horaAgora, diaSemana, dataBR, gerarId, abrirModal, fecharModal, confirmar, aviso, erro, icone, lerForm } from '../util.js';
 import { relatorioMensalPDF } from '../pdf.js';
@@ -199,24 +199,11 @@ export const acoes = {
   'editar-lanc': el => { const o = pegarRef(el.dataset.ref); modalLanc({ tipo: o.lista === 'entradas' ? 'entrada' : (o.lista === 'fixos' || o.x.cat === 'Fixo') ? 'fixa' : 'saida', ref: el.dataset.ref, x: o.x }); },
   'salvar-lanc': salvarLanc,
   'excluir-lanc': excluirLanc,
-  'copiar-fixas': async () => {
-    if (!S.carregado) return erro('Ainda carregando os dados.');
-    const ant = S.mes === 0 ? (S.dadosAnoAnterior && S.dadosAnoAnterior[11]) : S.dados[S.mes - 1];
-    if (!ant || !(ant.fixos || []).length) return erro('O mês anterior não tem contas fixas.');
-    const atuais = S.dados[S.mes].fixos;
-    let n = 0;
-    ant.fixos.forEach(f => {
-      if (!f.nome || atuais.some(a => (a.nome || '').trim().toLowerCase() === f.nome.trim().toLowerCase() && num(a.valor))) return;
-      const vazio = atuais.find(a => (a.nome || '').trim().toLowerCase() === f.nome.trim().toLowerCase());
-      const dia = f.data ? f.data.slice(8, 10) : '';
-      const ult = new Date(S.ano, S.mes + 1, 0).getDate();
-      const data = dia ? `${S.ano}-${String(S.mes + 1).padStart(2, '0')}-${String(Math.min(+dia, ult)).padStart(2, '0')}` : '';
-      if (vazio) Object.assign(vazio, { valor: f.valor, data, pago: false });
-      else atuais.push({ nome: f.nome, valor: f.valor, data, pago: false, _id: gerarId('f') });
-      n++;
-    });
-    if (!n) return aviso('As contas fixas já estão neste mês.');
-    salvarLancamentos(); aviso(n + ' conta(s) fixa(s) copiada(s)'); window.zlDesenhar();
+  'copiar-fixas': () => {
+    const r = copiarFixas(S.mes);
+    if (r.erro) return erro(r.erro);
+    if (!r.n) return aviso('As contas fixas já estão neste mês.');
+    aviso(r.n + ' conta(s) fixa(s) copiada(s)'); window.zlDesenhar();
   },
   'csv-mes': () => {
     const linhas = [['Data', 'Hora', 'Tipo', 'Descrição', 'Categoria', 'Forma', 'Valor']];

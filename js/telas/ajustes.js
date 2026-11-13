@@ -25,6 +25,11 @@ export function tela() {
   </div>
 
   <div class="caixa">
+    <div class="caixa-titulo"><h2>Lembrete de troca de óleo</h2></div>
+    <div class="acoes"><span>Avisar o cliente</span><input type="number" min="7" max="365" step="1" style="max-width:90px" value="${esc(S.config.diasOleo || 60)}" data-mudar="dias-oleo"><span>dias depois da última troca</span></div>
+  </div>
+
+  <div class="caixa">
     <div class="caixa-titulo"><h2>Categorias de saída</h2></div>
     <div class="filtros">${S.categorias.map(c => `<span class="etiqueta forte" style="height:30px;gap:8px">${esc(c)}<button class="btn btn-fantasma btn-p btn-icone" style="height:20px;width:20px" data-acao="cat-del" data-c="${esc(c)}" title="Remover">✕</button></span>`).join('')}</div>
     <div class="acoes"><input type="text" id="nova-cat" placeholder="Nova categoria" style="max-width:220px"><button class="btn" data-acao="cat-add">Adicionar</button></div>
@@ -86,5 +91,6 @@ export const acoes = {
   },
 };
 export const mudancas = {
+  'dias-oleo': async el => { const d = Math.max(7, Math.min(365, parseInt(el.value) || 60)); await salvarConfig({ diasOleo: d }); aviso('Lembrete: ' + d + ' dias'); window.zlDesenhar(); },
   'meta': async el => { await salvarConfig({ metaMensal: parseFloat(el.value) || 0 }); aviso('Meta salva'); window.zlDesenhar(); },
 };

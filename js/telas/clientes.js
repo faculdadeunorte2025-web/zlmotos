@@ -1,5 +1,7 @@
 // Clientes: lista, ficha e cadastro.
-import { S, salvarCliente, excluirCliente, totalOrcamento, orcAceito, orcRecusado } from '../dados.js';
+import { S, salvarCliente, excluirCliente, totalOrcamento, orcAceito, orcRecusado, salvarConfig } from '../dados.js';
+import { retornosOleo, ultimasTrocas, DIAS_OLEO_PADRAO } from '../analise.js';
+import { num, somaDias } from '../util.js';
 import { moeda, esc, dataBR, abrirModal, fecharModal, confirmar, aviso, erro, icone, lerForm, linkWhats } from '../util.js';
 import { novoParaCliente } from './orcamentos.js';
 
@@ -20,13 +22,14 @@ function todos() {
 }
 
 export function tela(param) {
+  if (param === 'retornos') return telaRetornos();
   if (param) { const c = todos().find(x => x.id === param); if (c) return ficha(c); }
   let lista = todos();
   if (termo) { const q = chave(termo); lista = lista.filter(c => [c.nome, c.tel, c.veic, c.placa, c.cpf].join(' ').toLowerCase().includes(q)); }
   return `
   <div class="cabecalho">
     <div><h1>Clientes</h1><div class="sub">${lista.length} cliente(s)</div></div>
-    <div class="acoes"><button class="btn btn-primario" data-acao="novo-cliente">${icone('mais')} Novo cliente</button></div>
+    <div class="acoes">${(() => { const n = retornosOleo().length; return n ? `<button class="btn" data-acao="ir" data-tela="clientes" data-p="retornos">Troca de óleo <span class="etiqueta forte" style="margin-left:4px">${n}</span></button>` : ''; })()}<button class="btn btn-primario" data-acao="novo-cliente">${icone('mais')} Novo cliente</button></div>
   </div>
   <div class="caixa">
     <div class="filtros"><input type="search" class="busca" style="margin-left:0;width:100%" placeholder="Nome, telefone, moto ou placa…" value="${esc(termo)}" data-digitar="busca-cli" data-sem-redesenho></div>
@@ -39,6 +42,24 @@ export function tela(param) {
         <div class="valor">${c.gasto ? moeda(c.gasto) : ''}</div>
       </div>`).join('') : '<div class="vazio">Nenhum cliente encontrado.</div>'}</div>
   </div>`;
+}
+
+function telaRetornos() {
+  const lista = retornosOleo(), dias = num(S.config.diasOleo) || DIAS_OLEO_PADRAO, emp = S.empresa.nomeFantasia || 'ZL Motos';
+  const msg = r => `Olá, ${r.cliente.split(' ')[0]}! Aqui é da ${emp}. A última troca de óleo da sua ${r.veiculo || 'moto'} foi em ${dataBR(r.data)}${r.km ? ' (' + r.km + ' km)' : ''}. Já está na hora da próxima. Quer agendar?`;
+  return `
+  <div class="cabecalho">
+    <div class="acoes"><button class="btn btn-icone" data-acao="ir" data-tela="clientes" title="Voltar">${icone('voltar')}</button>
+      <div><h1>Troca de óleo</h1><div class="sub">Clientes que trocaram o óleo há ${dias} dias ou mais (muda em Ajustes)</div></div></div>
+  </div>
+  <div class="caixa"><div class="lista">${lista.length ? lista.map(r => `
+    <div class="linha">
+      <div class="principal"><div class="titulo">${esc(r.cliente)}</div>
+        <div class="meta">${esc([r.veiculo, r.placa].filter(Boolean).join(' · ') || '—')} · última troca ${dataBR(r.data)}${r.km ? ' · ' + esc(r.km) + ' km' : ''} · ${r.atraso > 0 ? `<span class="neg">venceu há ${r.atraso} dia(s)</span>` : r.atraso === 0 ? 'vence hoje' : `vence em ${-r.atraso} dia(s)`}</div></div>
+      ${r.cliTel ? `<a class="btn btn-p" href="${linkWhats(r.cliTel, msg(r))}" target="_blank" rel="noopener">${icone('whats')} Avisar</a>` : '<span class="mudo" style="font-size:.8rem">sem telefone</span>'}
+      <button class="btn btn-p btn-fantasma" data-acao="oleo-avisado" data-k="${esc(r.chave)}" data-d="${esc(r.data)}" title="Tirar da lista">Feito</button>
+    </div>`).join('') : '<div class="vazio">Ninguém para avisar agora.</div>'}</div></div>
+  <p class="mudo" style="font-size:.8rem">A lista usa os orçamentos aceitos ou pagos que têm "óleo" em algum item. Depois de avisar, toque em "Feito" para tirar o cliente da lista até a próxima troca.</p>`;
 }
 
 function ficha(c) {
@@ -62,6 +83,10 @@ function ficha(c) {
   <div class="caixa"><div class="grade g3">
     ${campo('Telefone', c.tel)}${campo('CPF/CNPJ', c.cpf)}${campo('E-mail', c.email)}${campo('Moto', c.veic)}${campo('Placa', c.placa)}${campo('Nascimento', c.nascimento && dataBR(c.nascimento))}${campo('Endereço', c.endereco)}${campo('Observações', c.obs)}
   </div></div>
+  ${(() => { const t = ultimasTrocas().get(chave(c.nome)); if (!t) return ''; const dias = num(S.config.diasOleo) || DIAS_OLEO_PADRAO;
+    return `<div class="caixa"><div class="caixa-titulo"><h2>Troca de óleo</h2></div><div class="grade g3">
+      <div><div class="mudo" style="font-size:.76rem">Última troca</div><div>${dataBR(t.data)}${t.km ? ' · ' + esc(t.km) + ' km' : ''}</div></div>
+      <div><div class="mudo" style="font-size:.76rem">Próxima (a cada ${dias} dias)</div><div>${dataBR(somaDias(dias, new Date(t.data + 'T12:00:00')))}</div></div></div></div>`; })()}
   <div class="caixa"><div class="caixa-titulo"><h2>Histórico de orçamentos</h2></div>
     <div class="lista">${orcs.length ? orcs.map(o => `
       <div class="linha clicavel" data-acao="ir" data-tela="orcamentos" data-p="${esc(o.id)}">
@@ -84,6 +109,10 @@ function modalCliente(c = {}) {
 }
 
 export const acoes = {
+  'oleo-avisado': async el => {
+    const av = Object.assign({}, S.config.retornosAvisados || {}); av[el.dataset.k] = el.dataset.d;
+    await salvarConfig({ retornosAvisados: av }); aviso('Tirado da lista'); window.zlDesenhar();
+  },
   'novo-cliente': () => modalCliente(),
   'editar-cliente': el => modalCliente(todos().find(x => x.id === el.dataset.id)),
   'salvar-cliente': async () => {
