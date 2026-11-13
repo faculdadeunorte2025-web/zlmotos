@@ -26,6 +26,8 @@ export function tela() {
   const aReceber = S.orcamentos.filter(o => orcAceito(o) && !o.pago);
   const retornos = anoAtual ? retornosOleo() : [];
   if (retornos.length) avisos.push({ tela: 'clientes', p: 'retornos', txt: `<b>${retornos.length} cliente${retornos.length > 1 ? 's' : ''}</b> na hora de trocar o óleo` });
+  const rs = window.zlSocorro;
+  if (rs && rs.RS.estado === 'ok' && rs.abertasSocorro().length) avisos.push({ tela: 'contas', txt: `<b>RS Socorro:</b> ${moeda(rs.totalAbertoSocorro())} a pagar (${rs.abertasSocorro().length} moto${rs.abertasSocorro().length > 1 ? 's' : ''})` });
   if (aReceber.length) avisos.push({ tela: 'orcamentos', txt: `<b>${aReceber.length} orçamento${aReceber.length > 1 ? 's' : ''} aceito${aReceber.length > 1 ? 's' : ''}</b> ainda não pago${aReceber.length > 1 ? 's' : ''}` });
 
   return `
