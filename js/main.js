@@ -136,6 +136,8 @@ onAuthStateChanged(auth, async user => {
     const h = location.hash.replace('#', '');
     atual = TELAS[h] ? h : 'inicio';
     await carregarTudo();
+    // RS Socorro: carrega à parte; se falhar, o resto do sistema segue normal
+    import('./socorro.js').then(m => { window.zlSocorro = m; m.iniciarSocorro(() => desenhar(false)); }).catch(e => console.warn('RS Socorro indisponível', e));
     desenhar();
   } else {
     iniciado = false;
