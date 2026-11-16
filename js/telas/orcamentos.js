@@ -3,6 +3,8 @@ import { S, salvarOrcamento, excluirOrcamento, totalOrcamento, orcAceito, orcRec
 import { registrarLog } from '../firebase.js';
 import { moeda, num, esc, hojeISO, somaDias, dataBR, diasDesde, gerarId, copia, abrirModal, fecharModal, confirmar, aviso, erro, icone, lerForm, linkWhats, soNumeros } from '../util.js';
 import { orcamentoPDF, podeCompartilharArquivo } from '../pdf.js';
+import { cartao, cartaoOrc, noCartao, linhaCartao, linhaPix } from '../cartao.js';
+import { FORMAS } from '../util.js';
 
 const STATUS = {
   pendente: { nome: 'Pendente' },
@@ -127,13 +129,14 @@ function formulario() {
     <div class="caixa-titulo"><h2>Peças e serviços</h2>
       <div class="acoes"><button class="btn btn-p" data-acao="item-add" data-cat="Peça">${icone('mais')} Peça</button><button class="btn btn-p" data-acao="item-add" data-cat="Mão de Obra">${icone('mais')} Mão de obra</button></div></div>
     <div style="overflow-x:auto"><table class="tabela" id="tabela-itens">
-      <thead><tr><th>Descrição</th><th style="width:130px">Tipo</th><th style="width:70px" class="num">Qtd</th><th style="width:120px" class="num">Valor unit.</th><th style="width:110px" class="num">Subtotal</th><th style="width:40px"></th></tr></thead>
+      <thead><tr><th>Descrição</th><th style="width:130px">Tipo</th><th style="width:70px" class="num">Qtd</th><th style="width:120px" class="num">Valor unit.</th><th style="width:110px" class="num">Subtotal</th><th style="width:110px" class="num">No cartão</th><th style="width:40px"></th></tr></thead>
       <tbody>${o.itens.map((it, i) => `<tr>
         <td><input type="text" value="${esc(it.desc)}" data-digitar="item" data-i="${i}" data-campo="desc" placeholder="Descrição"></td>
         <td><select data-mudar="item-cat" data-i="${i}">${['Peça', 'Mão de Obra', 'Serviço'].map(c => `<option ${it.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select></td>
         <td><input type="number" class="num" min="0" step="1" value="${esc(it.qtd)}" data-digitar="item" data-i="${i}" data-campo="qtd"></td>
         <td><input type="number" class="num" min="0" step="0.01" value="${esc(it.vunit)}" data-digitar="item" data-i="${i}" data-campo="vunit"></td>
         <td class="num mono" id="sub-${i}">${moeda(num(it.qtd) * num(it.vunit))}</td>
+        <td class="num mono mudo" id="cart-${i}">${moeda(noCartao(num(it.qtd) * num(it.vunit), t.total))}</td>
         <td><button class="btn btn-fantasma btn-p btn-icone" data-acao="item-del" data-i="${i}" title="Remover">${icone('lixo')}</button></td></tr>`).join('')}</tbody>
     </table></div>
     <div class="grade g3" style="margin-top:14px">
@@ -161,11 +164,13 @@ function formulario() {
     <button class="btn btn-perigo" data-acao="excluir-orc" style="margin-left:auto">${icone('lixo')} Excluir orçamento</button>
   </div>` : ''}`;
 }
-const totaisHTML = t => `${t.desconto > 0 ? `<span class="mudo">Subtotal ${moeda(t.subtotal)} · Desconto − ${moeda(t.desconto)}</span>` : ''}<span class="total">${moeda(t.total)}</span>`;
+const totaisHTML = (t, o) => { const c = cartaoOrc(o || atual || {}, t); return `${t.desconto > 0 ? `<span class="mudo">Subtotal ${moeda(t.subtotal)} · Desconto − ${moeda(t.desconto)}</span>` : ''}<span class="total">${moeda(c.total)}</span>` +
+  (t.total > 0 ? `<span style="display:block;font-weight:600;margin-top:4px">${esc(linhaCartao(t.total, c))}</span><span class="mudo" style="display:block">${esc(linhaPix(t.total, c))}</span>` : ''); };
 
 function atualizarTotais() {
   const el = document.getElementById('totais'); if (el) el.innerHTML = totaisHTML(totalOrcamento(atual));
-  atual.itens.forEach((it, i) => { const c = document.getElementById('sub-' + i); if (c) c.textContent = moeda(num(it.qtd) * num(it.vunit)); });
+  const tt = totalOrcamento(atual).total;
+  atual.itens.forEach((it, i) => { const c = document.getElementById('sub-' + i); if (c) c.textContent = moeda(num(it.qtd) * num(it.vunit)); const k = document.getElementById('cart-' + i); if (k) k.textContent = moeda(noCartao(num(it.qtd) * num(it.vunit), tt)); });
 }
 
 async function salvar(msg = 'Orçamento salvo') {
@@ -191,9 +196,10 @@ function textoWhats(o) {
   let s = `*${emp} — Orçamento*\n\nCliente: ${o.cliente}\n`;
   if (o.veiculo || o.placa) s += `Moto: ${[o.veiculo, o.placa].filter(Boolean).join(' · ')}\n`;
   s += `Data: ${dataBR(o.data)}${o.validade ? ` · Válido até ${dataBR(o.validade)}` : ''}\n\n`;
-  o.itens.filter(it => it.desc).forEach(it => { s += `• ${it.desc} — ${num(it.qtd) || 1}x ${moeda(it.vunit)} = ${moeda(num(it.qtd) * num(it.vunit))}\n`; });
+  o.itens.filter(it => it.desc).forEach(it => { const q = num(it.qtd) || 1; s += `• ${it.desc} — ${q}x ${moeda(noCartao(q * num(it.vunit), t.total) / q)} = ${moeda(noCartao(q * num(it.vunit), t.total))}\n`; });
   if (t.desconto > 0) s += `\nSubtotal: ${moeda(t.subtotal)}\nDesconto: − ${moeda(t.desconto)}`;
-  s += `\n*Total: ${moeda(t.total)}*`;
+  const cc = cartaoOrc(o, t);
+  s += `\n*${linhaCartao(t.total, cc)}*\n${linhaPix(t.total, cc)}`;
   if (o.obs) s += `\n\nObs: ${o.obs}`;
   return s;
 }
@@ -234,7 +240,9 @@ export const acoes = {
     abrirModal({
       titulo: 'Registrar pagamento',
       corpo: `<p class="mudo" style="margin:0">Total ${moeda(t)} · já recebido ${moeda(ja)}</p>
-        <label class="campo"><span>Valor recebido agora (R$)</span><input type="number" step="0.01" min="0" name="valor" value="${(t - ja).toFixed(2)}"></label>
+        <label class="campo"><span>Forma de pagamento</span><select name="forma" data-mudar="pag-forma"><option value="">—</option>${FORMAS.map(f => `<option>${f}</option>`).join('')}</select></label>
+        <label class="campo"><span>Valor recebido agora (R$)</span><input type="number" step="0.01" min="0" name="valor" id="pag-valor" value="${(t - ja).toFixed(2)}"></label>
+        <p class="mudo" style="margin:0;font-size:.8rem">No cartão o valor já vem com a taxa embutida: ${esc(linhaCartao(t, cartaoOrc(atual, totalOrcamento(atual))))}.</p>
         <label class="check"><input type="checkbox" name="lancar" checked> Lançar como entrada no Caixa de hoje</label>`,
       rodape: `<div class="direita"><button class="btn" data-acao="fechar-modal">Cancelar</button><button class="btn btn-primario" data-acao="confirmar-pagamento">Confirmar</button></div>`
     });
@@ -245,11 +253,12 @@ export const acoes = {
     const t = totalOrcamento(atual).total;
     atual.valorPago = Math.round((num(atual.valorPago) + v) * 100) / 100;
     atual.pago = atual.valorPago >= t - 0.009;
+    if (f.forma) atual.formaPgto = f.forma;
     if (f.lancar) {
       const { S: E, salvarLancamentos } = await import('../dados.js');
       const h = new Date();
       if (h.getFullYear() !== E.ano) erro('A entrada não foi lançada: o Caixa está em outro ano.');
-      else { E.dados[h.getMonth()].entradas.push({ data: hojeISO(), hora: String(h.getHours()).padStart(2, '0') + ':' + String(h.getMinutes()).padStart(2, '0'), desc: 'Orçamento — ' + atual.cliente + (atual.veiculo ? ' (' + atual.veiculo + ')' : ''), valor: v.toFixed(2), formaPgto: '', pago: true, _orcId: atual.id, _id: gerarId('e') }); salvarLancamentos(); }
+      else { E.dados[h.getMonth()].entradas.push({ data: hojeISO(), hora: String(h.getHours()).padStart(2, '0') + ':' + String(h.getMinutes()).padStart(2, '0'), desc: 'Orçamento — ' + atual.cliente + (atual.veiculo ? ' (' + atual.veiculo + ')' : ''), valor: v.toFixed(2), formaPgto: f.forma || '', pago: true, _orcId: atual.id, _id: gerarId('e') }); salvarLancamentos(); }
     }
     fecharModal();
     await salvar(atual.pago ? 'Orçamento quitado' : 'Pagamento parcial registrado');
@@ -266,6 +275,13 @@ export const mudancas = {
   'orc-desc-tipo': el => { atual.descTipo = el.value; sujo = true; atualizarTotais(); },
   'orc-rodagem': el => { atual.autorizaRodagem = el.checked; sujo = true; },
   'item-cat': el => { atual.itens[+el.dataset.i].cat = el.value; sujo = true; },
+  // Cartão: sugere o valor com a taxa embutida; Pix/dinheiro: o valor à vista
+  'pag-forma': el => {
+    const t = totalOrcamento(atual).total, ja = num(atual.valorPago), inp = document.getElementById('pag-valor');
+    if (!inp) return;
+    const cheio = /cr[eé]dito|d[eé]bito/i.test(el.value) ? cartaoOrc(atual, totalOrcamento(atual)).total : t;
+    inp.value = Math.max(0, cheio - ja).toFixed(2);
+  },
 };
 export const digitacao = {
   'orc-campo': el => { atual[el.dataset.campo] = el.value; sujo = true; if (el.dataset.campo === 'descValor') atualizarTotais(); },

@@ -2,6 +2,7 @@
 import { S, salvarEmpresa, salvarConfig, salvarCategorias } from '../dados.js';
 import { auth, updatePassword, ler, docUsuario, getDocs, colUsuario } from '../firebase.js';
 import { moeda, esc, aviso, erro, lerForm, abrirModal, fecharModal, confirmar, hojeISO } from '../util.js';
+import { taxasCartao } from '../cartao.js';
 
 const CAMPOS_EMPRESA = [['nomeFantasia', 'Nome fantasia'], ['razaoSocial', 'Razão social'], ['cnpj', 'CNPJ'], ['telefone', 'Telefone'], ['email', 'E-mail'], ['endereco', 'Endereço', 'span-tudo'], ['bairro', 'Bairro'], ['cidade', 'Cidade'], ['estado', 'Estado'], ['cep', 'CEP']];
 
@@ -25,6 +26,14 @@ export function tela() {
   </div>
 
   <div class="caixa">
+    <div class="caixa-titulo"><h2>Taxas da maquininha</h2><button class="btn btn-primario btn-p" data-acao="salvar-taxas">Salvar</button></div>
+    <p class="mudo" style="margin:-4px 0 12px;font-size:.82rem">A maior taxa entre as bandeiras. Abaixo de R$ 300 é 1x; a cada R$ 300 libera mais uma parcela (até 6x). A taxa da parcela máxima vai embutida no preço do cartão; Pix e dinheiro pagam o valor à vista. Use as mesmas do sistema de comissão.</p>
+    <div class="grade g3" id="form-taxas">
+      ${taxasCartao().map((t, i) => `<label class="campo"><span>${i ? (i + 1) + 'x' : '1x / débito'} (%)</span><input type="number" step="0.01" min="0" max="29.99" name="t${i}" value="${esc(t)}"></label>`).join('')}
+    </div>
+  </div>
+
+  <div class="caixa">
     <div class="caixa-titulo"><h2>Lembrete de troca de óleo</h2></div>
     <div class="acoes"><span>Avisar o cliente</span><input type="number" min="7" max="365" step="1" style="max-width:90px" value="${esc(S.config.diasOleo || 60)}" data-mudar="dias-oleo"><span>dias depois da última troca</span></div>
   </div>
@@ -43,10 +52,16 @@ export function tela() {
     </div>
     <p class="mudo" style="font-size:.8rem;margin:10px 0 0">O backup baixa tudo que está no servidor, inclusive dados de módulos antigos (OS, estoque, vendas). Guarde o arquivo em local seguro.</p>
   </div>
-  <p class="mudo" style="text-align:center;font-size:.75rem;margin-top:24px">ZL Motos · versão 7.0.0</p>`;
+  <p class="mudo" style="text-align:center;font-size:.75rem;margin-top:24px">ZL Motos · versão 7.3.0</p>`;
 }
 
 export const acoes = {
+  'salvar-taxas': async () => {
+    const f = lerForm(document.getElementById('form-taxas'));
+    const tx = [0, 1, 2, 3, 4, 5].map(i => parseFloat(String(f['t' + i]).replace(',', '.')));
+    if (tx.some(t => isNaN(t) || t < 0 || t >= 30)) return erro('Taxa inválida (0 a 29,99%).');
+    await salvarConfig({ taxasCartao: tx }); aviso('Taxas salvas'); window.zlDesenhar();
+  },
   'salvar-empresa': async () => {
     const f = lerForm(document.getElementById('form-empresa'));
     S.empresa = Object.assign(S.empresa || {}, f);
