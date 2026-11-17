@@ -255,3 +255,11 @@ input[type=date]::-webkit-calendar-picker-indicator, input[type=time]::-webkit-c
 }
 .progresso.dupla { background: var(--borda-forte); height: 8px; }
 .tabela td.mono, .tabela td .pos, .tabela td .neg { white-space: nowrap; }
+
+/* Resumo do orçamento (igual ao PDF do sistema de comissão) */
+.resumo-orc { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 2px; font-size: .88rem; }
+.resumo-orc .lin { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; color: var(--texto-2); }
+.resumo-orc .lin b { font-weight: 600; white-space: nowrap; color: var(--texto); }
+.resumo-orc .tot-cartao { text-align: right; border-top: 1px solid var(--borda); margin-top: 6px; padding-top: 8px; font-size: 1.15rem; font-weight: 700; }
+.resumo-orc .parc { text-align: right; font-size: .85rem; }
+.resumo-orc .parc.mudo { color: var(--texto-3); font-size: .76rem; margin-top: 4px; }
