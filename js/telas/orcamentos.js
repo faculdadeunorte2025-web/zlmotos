@@ -1,9 +1,9 @@
 // Orçamentos: lista e formulário.
-import { S, salvarOrcamento, excluirOrcamento, totalOrcamento, orcAceito, orcRecusado, salvarCliente } from '../dados.js';
+import { S, salvarOrcamento, excluirOrcamento, totalOrcamento, orcAceito, orcRecusado, salvarCliente, valoresItem, itemValido } from '../dados.js';
 import { registrarLog } from '../firebase.js';
 import { moeda, num, esc, hojeISO, somaDias, dataBR, diasDesde, gerarId, copia, abrirModal, fecharModal, confirmar, aviso, erro, icone, lerForm, linkWhats, soNumeros } from '../util.js';
 import { orcamentoPDF, podeCompartilharArquivo } from '../pdf.js';
-import { cartao, cartaoOrc, noCartao, linhaCartao, linhaPix } from '../cartao.js';
+import { cartaoOrc, linhaCartao, linhaPix, resumoOrc, pctBR, noCartao } from '../cartao.js';
 import { FORMAS } from '../util.js';
 
 const STATUS = {
@@ -81,7 +81,12 @@ function lista() {
 
 // ── Formulário ──────────────────────────────────────────────────────
 function prepara(o) {
-  o.itens = Array.isArray(o.itens) ? o.itens : [];
+  o.itens = (Array.isArray(o.itens) ? o.itens : []).map(it => {
+    if (!it || 'peca' in it || 'mao' in it) return it || { desc: '', peca: '', mao: '' };
+    const v = valoresItem(it), q = num(it.qtd);
+    const desc = (q > 1 ? String(it.qtd).replace('.', ',') + 'x ' : '') + (it.desc || '');
+    return { desc, peca: v.peca ? String(v.peca) : '', mao: v.mao ? String(v.mao) : '' };
+  });
   o.descTipo = o.descTipo === 'percentual' ? 'percentual' : 'valor';
   if (o.descValor === undefined) o.descValor = '';
   return o;
@@ -89,7 +94,7 @@ function prepara(o) {
 function novo(cli) {
   atual = prepara({
     id: gerarId('orc'), cliente: cli?.nome || '', telefone: cli?.tel || '', veiculo: cli?.veic || '', placa: cli?.placa || '', clienteId: cli?.id || '',
-    km: '', data: hojeISO(), validade: somaDias(7), itens: [{ desc: '', cat: 'Peça', qtd: '1', vunit: '' }], obs: '', status: 'pendente', autorizaRodagem: false, _novo: true,
+    km: '', data: hojeISO(), validade: somaDias(7), itens: [{ desc: '', peca: '', mao: '' }], obs: '', status: 'pendente', autorizaRodagem: false, _novo: true,
   });
   sujo = false;
 }
@@ -126,17 +131,16 @@ function formulario() {
   </div>
 
   <div class="caixa">
-    <div class="caixa-titulo"><h2>Peças e serviços</h2>
-      <div class="acoes"><button class="btn btn-p" data-acao="item-add" data-cat="Peça">${icone('mais')} Peça</button><button class="btn btn-p" data-acao="item-add" data-cat="Mão de Obra">${icone('mais')} Mão de obra</button></div></div>
+    <div class="caixa-titulo"><h2>Itens</h2>
+      <div class="acoes"><button class="btn btn-p" data-acao="item-add">${icone('mais')} Item</button></div></div>
+    <p class="mudo" style="margin:-6px 0 10px;font-size:.8rem">Digite o valor normal (à vista) da peça e da mão de obra. A taxa da maquininha é somada sozinha.</p>
     <div style="overflow-x:auto"><table class="tabela" id="tabela-itens">
-      <thead><tr><th>Descrição</th><th style="width:130px">Tipo</th><th style="width:70px" class="num">Qtd</th><th style="width:120px" class="num">Valor unit.</th><th style="width:110px" class="num">Subtotal</th><th style="width:110px" class="num">No cartão</th><th style="width:40px"></th></tr></thead>
+      <thead><tr><th>Item</th><th style="width:120px" class="num">Peça</th><th style="width:120px" class="num">Mão de obra</th><th style="width:110px" class="num">No cartão</th><th style="width:40px"></th></tr></thead>
       <tbody>${o.itens.map((it, i) => `<tr>
-        <td><input type="text" value="${esc(it.desc)}" data-digitar="item" data-i="${i}" data-campo="desc" placeholder="Descrição"></td>
-        <td><select data-mudar="item-cat" data-i="${i}">${['Peça', 'Mão de Obra', 'Serviço'].map(c => `<option ${it.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select></td>
-        <td><input type="number" class="num" min="0" step="1" value="${esc(it.qtd)}" data-digitar="item" data-i="${i}" data-campo="qtd"></td>
-        <td><input type="number" class="num" min="0" step="0.01" value="${esc(it.vunit)}" data-digitar="item" data-i="${i}" data-campo="vunit"></td>
-        <td class="num mono" id="sub-${i}">${moeda(num(it.qtd) * num(it.vunit))}</td>
-        <td class="num mono mudo" id="cart-${i}">${moeda(noCartao(num(it.qtd) * num(it.vunit), t.total))}</td>
+        <td><input type="text" value="${esc(it.desc)}" data-digitar="item" data-i="${i}" data-campo="desc" placeholder="Ex: Seta dianteira"></td>
+        <td><input type="number" class="num" min="0" step="0.01" value="${esc(it.peca)}" data-digitar="item" data-i="${i}" data-campo="peca" placeholder="0,00"></td>
+        <td><input type="number" class="num" min="0" step="0.01" value="${esc(it.mao)}" data-digitar="item" data-i="${i}" data-campo="mao" placeholder="0,00"></td>
+        <td class="num mono" id="cart-${i}">${moeda(cartaoItem(it, t.total))}</td>
         <td><button class="btn btn-fantasma btn-p btn-icone" data-acao="item-del" data-i="${i}" title="Remover">${icone('lixo')}</button></td></tr>`).join('')}</tbody>
     </table></div>
     <div class="grade g3" style="margin-top:14px">
@@ -164,19 +168,30 @@ function formulario() {
     <button class="btn btn-perigo" data-acao="excluir-orc" style="margin-left:auto">${icone('lixo')} Excluir orçamento</button>
   </div>` : ''}`;
 }
-const totaisHTML = (t, o) => { const c = cartaoOrc(o || atual || {}, t); return `${t.desconto > 0 ? `<span class="mudo">Subtotal ${moeda(t.subtotal)} · Desconto − ${moeda(t.desconto)}</span>` : ''}<span class="total">${moeda(c.total)}</span>` +
-  (t.total > 0 ? `<span style="display:block;font-weight:600;margin-top:4px">${esc(linhaCartao(t.total, c))}</span><span class="mudo" style="display:block">${esc(linhaPix(t.total, c))}</span>` : ''); };
+// Mesmo resumo do PDF do sistema de comissão: Peças, Mão de obra, total no cartão e o Pix embaixo
+const cartaoItem = (it, base) => { const v = valoresItem(it); return Math.round((noCartao(v.peca, base) + noCartao(v.mao, base)) * 100) / 100; };
+const totaisHTML = (t, o) => {
+  const r = resumoOrc(o || atual || {}, t);
+  const l = (n, v) => `<div class="lin"><span>${n}</span><b class="mono">${v}</b></div>`;
+  return `<div class="resumo-orc">
+    ${l('Peças', moeda(r.pecas))}${l('Mão de obra', moeda(r.mao))}
+    ${r.desconto > 0 ? l('Desconto', '− ' + moeda(r.desconto)) : ''}
+    <div class="tot-cartao">${esc(linhaCartao(r.vista, r.c))}</div>
+    <div class="parc">${esc(linhaPix(r.vista, r.c))}</div>
+    ${r.vista > 0 ? `<div class="parc mudo">Taxa da maquininha embutida: ${r.n}x · ${pctBR(r.pct)} = ${moeda(r.taxa)}</div>` : ''}
+  </div>`;
+};
 
 function atualizarTotais() {
   const el = document.getElementById('totais'); if (el) el.innerHTML = totaisHTML(totalOrcamento(atual));
   const tt = totalOrcamento(atual).total;
-  atual.itens.forEach((it, i) => { const c = document.getElementById('sub-' + i); if (c) c.textContent = moeda(num(it.qtd) * num(it.vunit)); const k = document.getElementById('cart-' + i); if (k) k.textContent = moeda(noCartao(num(it.qtd) * num(it.vunit), tt)); });
+  atual.itens.forEach((it, i) => { const c = document.getElementById('cart-' + i); if (c) c.textContent = moeda(cartaoItem(it, tt)); });
 }
 
 async function salvar(msg = 'Orçamento salvo') {
   const o = atual;
   if (!String(o.cliente || '').trim()) { erro('Informe o nome do cliente.'); return false; }
-  o.itens = (o.itens || []).filter(it => String(it.desc || '').trim() || num(it.vunit));
+  o.itens = (o.itens || []).filter(itemValido);
   const eraNovo = o._novo; delete o._novo;
   // cadastra o cliente automaticamente se ainda não existir
   if (!o.clienteId && !S.clientes.some(c => (c.nome || '').trim().toLowerCase() === o.cliente.trim().toLowerCase())) {
@@ -196,10 +211,14 @@ function textoWhats(o) {
   let s = `*${emp} — Orçamento*\n\nCliente: ${o.cliente}\n`;
   if (o.veiculo || o.placa) s += `Moto: ${[o.veiculo, o.placa].filter(Boolean).join(' · ')}\n`;
   s += `Data: ${dataBR(o.data)}${o.validade ? ` · Válido até ${dataBR(o.validade)}` : ''}\n\n`;
-  o.itens.filter(it => it.desc).forEach(it => { const q = num(it.qtd) || 1; s += `• ${it.desc} — ${q}x ${moeda(noCartao(q * num(it.vunit), t.total) / q)} = ${moeda(noCartao(q * num(it.vunit), t.total))}\n`; });
-  if (t.desconto > 0) s += `\nSubtotal: ${moeda(t.subtotal)}\nDesconto: − ${moeda(t.desconto)}`;
-  const cc = cartaoOrc(o, t);
-  s += `\n*${linhaCartao(t.total, cc)}*\n${linhaPix(t.total, cc)}`;
+  const r = resumoOrc(o, t);
+  r.linhas.forEach(l => {
+    const partes = [l.peca > 0 ? `peça ${moeda(l.peca)}` : '', l.mao > 0 ? `mão de obra ${moeda(l.mao)}` : ''].filter(Boolean);
+    s += `• ${l.desc || 'Item'} — ${partes.length > 1 ? partes.join(' + ') + ' = ' : ''}${moeda(l.total)}\n`;
+  });
+  s += `\nPeças: ${moeda(r.pecas)}\nMão de obra: ${moeda(r.mao)}\n`;
+  if (r.desconto > 0) s += `Desconto: − ${moeda(r.desconto)}\n`;
+  s += `\n*${linhaCartao(r.vista, r.c)}*\n${linhaPix(r.vista, r.c)}`;
   if (o.obs) s += `\n\nObs: ${o.obs}`;
   return s;
 }
@@ -213,7 +232,7 @@ export const acoes = {
     atual = null; sujo = false; window.zlIr('orcamentos');
   },
   'salvar-orc': () => salvar(),
-  'item-add': el => { atual.itens.push({ desc: '', cat: el.dataset.cat, qtd: '1', vunit: '' }); sujo = true; window.zlDesenhar(); const ins = document.querySelectorAll('#tabela-itens tbody tr:last-child input'); ins[0] && ins[0].focus(); },
+  'item-add': () => { atual.itens.push({ desc: '', peca: '', mao: '' }); sujo = true; window.zlDesenhar(); const ins = document.querySelectorAll('#tabela-itens tbody tr:last-child input'); ins[0] && ins[0].focus(); },
   'item-del': el => { atual.itens.splice(+el.dataset.i, 1); sujo = true; window.zlDesenhar(); },
   'escolher-cliente': el => {
     const c = S.clientes.find(x => x.id === el.dataset.id); if (!c) return;
@@ -274,7 +293,7 @@ export const mudancas = {
   'orc-status': el => { atual.status = el.value; sujo = true; window.zlDesenhar(); },
   'orc-desc-tipo': el => { atual.descTipo = el.value; sujo = true; atualizarTotais(); },
   'orc-rodagem': el => { atual.autorizaRodagem = el.checked; sujo = true; },
-  'item-cat': el => { atual.itens[+el.dataset.i].cat = el.value; sujo = true; },
+  'item-cat': el => { atual.itens[+el.dataset.i].cat = el.value; sujo = true; atualizarTotais(); },
   // Cartão: sugere o valor com a taxa embutida; Pix/dinheiro: o valor à vista
   'pag-forma': el => {
     const t = totalOrcamento(atual).total, ja = num(atual.valorPago), inp = document.getElementById('pag-valor');
