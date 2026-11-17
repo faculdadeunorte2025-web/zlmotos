@@ -1,7 +1,7 @@
 // PDFs: orçamento para o cliente e relatório mensal. Layout branco, sóbrio.
 import { S, calcMes, totalOrcamento } from './dados.js';
 import { MESES, num, moeda, dataBR, somaDias, erro, aviso } from './util.js';
-import { linhaCartao, linhaPix, noCartao, cartaoOrc } from './cartao.js';
+import { resumoOrc, linhaCartao, linhaPix } from './cartao.js';
 
 const W = 210, M = 16;
 const TEXTO = [24, 24, 27], CINZA = [113, 113, 122], LINHA = [222, 222, 226], FUNDO = [246, 246, 248], MARCA = [200, 16, 46];
@@ -66,49 +66,40 @@ export function orcamentoPDF(o, opcoes = {}) {
   });
   y += 28;
 
-  // Itens
-  const col = { desc: M + 2, cat: 112, qtd: 140, un: 166, tot: W - M - 2 };
+  // Itens como no sistema de comissão: Item | Peça | Mão de obra | Total (já com a taxa da maquininha)
+  const r = resumoOrc(o, t);
+  const col = { desc: M, peca: 132, mao: 162, tot: W - M };
   const cabItens = () => {
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.2); cor(doc, CINZA);
-    doc.text('DESCRIÇÃO', col.desc, y); doc.text('TIPO', col.cat, y);
-    doc.text('QTD', col.qtd, y, { align: 'right' }); doc.text('VALOR UNIT.', col.un, y, { align: 'right' }); doc.text('TOTAL', col.tot, y, { align: 'right' });
-    y += 2.5; doc.setDrawColor(...TEXTO); doc.setLineWidth(0.4); doc.line(M, y, W - M, y); y += 5.5;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); cor(doc, TEXTO);
+    doc.text('Item', col.desc, y); doc.text('Peça', col.peca, y, { align: 'right' });
+    doc.text('Mão de obra', col.mao, y, { align: 'right' }); doc.text('Total', col.tot, y, { align: 'right' });
+    y += 2; doc.setDrawColor(...LINHA); doc.setLineWidth(0.3); doc.line(M, y, W - M, y); y += 5;
   };
   cabItens();
-  (o.itens || []).filter(i => String(i.desc || '').trim() || num(i.vunit)).forEach(it => {
-    const linhas = doc.splitTextToSize(String(it.desc || '—'), 92);
-    const alt = linhas.length * 4.2 + 2.8;
-    if (y + alt > 262) { doc.addPage(); y = 20; cabItens(); }
+  r.linhas.forEach(l => {
+    const linhas = doc.splitTextToSize(l.desc || '—', 92);
+    if (y + linhas.length * 4.2 > 262) { doc.addPage(); y = 20; cabItens(); }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8.8); cor(doc, TEXTO);
     doc.text(linhas, col.desc, y);
-    doc.setFontSize(7.8); cor(doc, CINZA); doc.text(String(it.cat || ''), col.cat, y);
-    doc.setFontSize(8.8); cor(doc, TEXTO);
-    doc.text(String(num(it.qtd) || 1).replace('.', ','), col.qtd, y, { align: 'right' });
-    const qq = num(it.qtd) || 1, cTot = noCartao(qq * num(it.vunit), t.total);
-    doc.text(moeda(cTot / qq), col.un, y, { align: 'right' });
-    doc.setFont('helvetica', 'bold'); doc.text(moeda(cTot), col.tot, y, { align: 'right' });
-    y += alt - 3.5; doc.setDrawColor(...LINHA); doc.setLineWidth(0.2); doc.line(M, y, W - M, y); y += 5;
+    doc.text(l.peca > 0 ? moeda(l.peca) : '—', col.peca, y, { align: 'right' });
+    doc.text(l.mao > 0 ? moeda(l.mao) : '—', col.mao, y, { align: 'right' });
+    doc.text(moeda(l.total), col.tot, y, { align: 'right' });
+    y += linhas.length * 4.2 + 2.6;
   });
+  y += 4; doc.setDrawColor(...LINHA); doc.setLineWidth(0.3); doc.line(M, y, W - M, y); y += 8;
 
-  // Totais (como antes: com desconto, o cliente vê só o total final)
-  if (y > 240) { doc.addPage(); y = 20; }
-  y += 2;
-  const cc = cartaoOrc(o, t);
-  const pecas = (o.itens || []).filter(i => /pe[cç]a/i.test(i.cat || '')).reduce((s, i) => s + noCartao((num(i.qtd) || 1) * num(i.vunit), t.total), 0);
-  const servicos = cc.total - pecas;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); cor(doc, CINZA);
-  if (!t.desconto && pecas > 0 && servicos > 0) {
-    doc.text('Peças', 140, y); doc.text(moeda(pecas), W - M - 2, y, { align: 'right' }); y += 5;
-    doc.text('Mão de obra', 140, y); doc.text(moeda(servicos), W - M - 2, y, { align: 'right' }); y += 3;
-  }
-  // Preço no cartão em destaque (parcela primeiro) e o Pix com desconto embaixo
-  doc.setFillColor(...TEXTO); doc.roundedRect(M + 60, y, W - 2 * M - 60, 11, 1.5, 1.5, 'F');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(255, 255, 255);
-  doc.text(linhaCartao(t.total, cc), W - M - 4, y + 7.3, { align: 'right' });
-  y += 17;
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); cor(doc, TEXTO);
-  doc.text(linhaPix(t.total, cc), W - M - 2, y, { align: 'right' });
-  y += 10;
+  // Peças, Mão de obra, total no cartão e o Pix embaixo
+  if (y > 235) { doc.addPage(); y = 20; }
+  const xl = 140, xr = W - M;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.8); cor(doc, TEXTO);
+  doc.text('Peças', xl, y); doc.text(moeda(r.pecas), xr, y, { align: 'right' }); y += 4.6;
+  doc.text('Mão de obra', xl, y); doc.text(moeda(r.mao), xr, y, { align: 'right' }); y += 4.6;
+  if (r.desconto > 0) { doc.text('Desconto', xl, y); doc.text('− ' + moeda(r.desconto), xr, y, { align: 'right' }); y += 4.6; }
+  y += 3;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+  doc.text(linhaCartao(r.vista, r.c), xr, y, { align: 'right' }); y += 6.5;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+  doc.text(linhaPix(r.vista, r.c), xr, y, { align: 'right' }); y += 14;
 
   if (String(o.obs || '').trim()) {
     const l = doc.splitTextToSize(String(o.obs), W - 2 * M);

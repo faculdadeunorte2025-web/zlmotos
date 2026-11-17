@@ -1,5 +1,5 @@
 // Cálculos de apoio: retorno de troca de óleo e comparativo de meses.
-import { S, calcMes, orcAceito, totalOrcamento } from './dados.js';
+import { S, calcMes, orcAceito, totalOrcamento, valoresItem } from './dados.js';
 import { num, hojeISO, somaDias } from './util.js';
 
 export const DIAS_OLEO_PADRAO = 60;
@@ -59,10 +59,7 @@ export function comparativo(m) {
     if (!orcAceito(o) || !String(o.data || o.criadoEm || '').startsWith(prefixo)) return;
     qtd++;
     const t = totalOrcamento(o), fator = t.subtotal ? t.total / t.subtotal : 1; // desconto distribuído
-    (o.itens || []).forEach(it => {
-      const v = (num(it.qtd) || 1) * num(it.vunit) * fator;
-      if (/pe[cç]a/i.test(it.cat || '')) pecas += v; else mao += v;
-    });
+    (o.itens || []).forEach(it => { const v = valoresItem(it); pecas += v.peca * fator; mao += v.mao * fator; });
   });
   return { atual, anterior, anoPassado, pecas, mao, qtd };
 }
@@ -73,11 +70,11 @@ export function servicosQueMaisRendem(limite = 6) {
   S.orcamentos.forEach(o => {
     if (!orcAceito(o) || !String(o.data || o.criadoEm || '').startsWith(String(S.ano))) return;
     (o.itens || []).forEach(it => {
-      if (/pe[cç]a/i.test(it.cat || '') || !String(it.desc || '').trim()) return;
+      if (!(valoresItem(it).mao > 0) || !String(it.desc || '').trim()) return;
       if (/^(m[ãa]o de obra|servi[çc]o|servi[çc]os|mo)$/i.test(it.desc.trim())) return; // nomes genéricos não dizem qual serviço
       const nome = it.desc.trim().replace(/\s+/g, ' ');
       const k = nome.toLowerCase();
-      const v = (num(it.qtd) || 1) * num(it.vunit);
+      const v = valoresItem(it).mao;
       const a = mapa.get(k) || { nome, total: 0, vezes: 0 };
       a.total += v; a.vezes++; mapa.set(k, a);
     });

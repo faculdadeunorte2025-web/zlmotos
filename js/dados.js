@@ -39,8 +39,18 @@ export function calcMes(m, base = S.dados) {
   return { entradas, fixas, variaveis, saidas: fixas + variaveis, resultado: entradas - fixas - variaveis };
 }
 
+// Valor à vista de peça e de mão de obra de um item.
+// Item novo (como no sistema de comissão): { desc, peca, mao }.
+// Item antigo: { desc, cat, qtd, vunit } — vai todo para peça ou para mão de obra conforme o tipo.
+export function valoresItem(it) {
+  if (!it) return { peca: 0, mao: 0 };
+  if ('peca' in it || 'mao' in it) return { peca: num(it.peca), mao: num(it.mao) };
+  const v = num(it.qtd) * num(it.vunit);
+  return /pe[cç]a/i.test(it.cat || '') ? { peca: v, mao: 0 } : { peca: 0, mao: v };
+}
+export const itemValido = it => !!(String((it && it.desc) || '').trim() || valoresItem(it).peca || valoresItem(it).mao);
 export function totalOrcamento(o) {
-  const sub = (o.itens || []).reduce((s, it) => s + num(it.qtd) * num(it.vunit), 0);
+  const sub = Math.round((o.itens || []).reduce((s, it) => { const v = valoresItem(it); return s + v.peca + v.mao; }, 0) * 100) / 100;
   const desc = o.descTipo === 'percentual' ? sub * num(o.descValor) / 100 : num(o.descValor);
   const total = Math.max(0, sub - desc - num(o.descFidelidade));
   return { subtotal: sub, desconto: sub - total, total };
