@@ -10,3 +10,6 @@
 - Taxas e regra de parcelas: as mesmas da v7.3 (Ajustes → Taxas da maquininha).
 
 Arquivos mudados: `index.html` (7.4.0), `js/dados.js`, `js/cartao.js`, `js/analise.js`, `js/telas/orcamentos.js`, `js/telas/ajustes.js`, `js/pdf.js`, `css/app.css`.
+
+## v7.4.1
+- **Nada mais é lançado sozinho no Caixa.** Marcar orçamento como pago, pagar conta em Contas a pagar e pagar corrida do RS Socorro só mudam a situação; as entradas e saídas você lança à mão no Caixa.
