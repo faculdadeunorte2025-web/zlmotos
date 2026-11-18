@@ -4,6 +4,7 @@ import { retornosOleo, ultimasTrocas, DIAS_OLEO_PADRAO } from '../analise.js';
 import { num, somaDias } from '../util.js';
 import { moeda, esc, dataBR, abrirModal, fecharModal, confirmar, aviso, erro, icone, lerForm, linkWhats } from '../util.js';
 import { novoParaCliente } from './orcamentos.js';
+import { camposClienteNota, dadosNotaDoForm, buscarCep } from '../nfse.js';
 
 let termo = '';
 const chave = s => String(s || '').trim().toLowerCase();
@@ -101,7 +102,10 @@ function modalCliente(c = {}) {
   const f = (n, rot, tipo = 'text', cls = '') => `<label class="campo ${cls}"><span>${rot}</span><input type="${tipo}" name="${n}" value="${esc(c[n] || '')}"></label>`;
   abrirModal({
     titulo: c.cadastrado ? 'Editar cliente' : 'Novo cliente', largo: true,
-    corpo: `<div class="grade g2">${f('nome', 'Nome', 'text', 'span-tudo')}${f('tel', 'Telefone')}${f('cpf', 'CPF/CNPJ')}${f('veic', 'Moto')}${f('placa', 'Placa')}${f('email', 'E-mail', 'email')}${f('nascimento', 'Nascimento', 'date')}${f('endereco', 'Endereço', 'text', 'span-tudo')}
+    corpo: `<div class="grade g2">${f('nome', 'Nome', 'text', 'span-tudo')}${f('tel', 'Telefone')}${f('nascimento', 'Nascimento', 'date')}${f('veic', 'Moto')}${f('placa', 'Placa')}
+      <p class="mudo span-tudo" style="margin:6px 0 0;font-size:.8rem">Para nota fiscal: CPF ou CNPJ, e-mail, telefone e endereço com CEP.</p>
+      ${camposClienteNota(c)}
+      <input type="hidden" name="endereco" value="${esc(c.endereco || '')}">
       <label class="campo span-tudo"><span>Observações</span><textarea name="obs">${esc(c.obs || '')}</textarea></label></div>
       <input type="hidden" name="id" value="${esc(c.cadastrado ? c.id : '')}">`,
     rodape: `<div class="direita"><button class="btn" data-acao="fechar-modal">Cancelar</button><button class="btn btn-primario" data-acao="salvar-cliente">Salvar</button></div>`
@@ -120,7 +124,7 @@ export const acoes = {
     if (!f.nome.trim()) return erro('Informe o nome.');
     const existente = f.id ? S.clientes.find(c => c.id === f.id) : null;
     if (!existente && S.clientes.some(c => chave(c.nome) === chave(f.nome))) return erro('Já existe um cliente com esse nome.');
-    const c = Object.assign(existente ? { ...existente } : {}, { nome: f.nome.trim(), tel: f.tel, cpf: f.cpf, veic: f.veic, placa: f.placa.toUpperCase(), email: f.email, nascimento: f.nascimento, endereco: f.endereco, obs: f.obs });
+    const c = Object.assign(existente ? { ...existente } : {}, { nome: f.nome.trim(), tel: f.tel, veic: f.veic, placa: f.placa.toUpperCase(), nascimento: f.nascimento, endereco: f.endereco, obs: f.obs }, dadosNotaDoForm(f));
     await salvarCliente(c);
     fecharModal(); aviso('Cliente salvo'); window.zlIr('clientes', c.id);
   },
@@ -132,6 +136,7 @@ export const acoes = {
   'orc-cliente': el => { const c = todos().find(x => x.id === el.dataset.id); novoParaCliente(c && c.cadastrado ? c : { nome: c?.nome, tel: c?.tel, veic: c?.veic, placa: c?.placa }); },
 };
 export const digitacao = {
+  'cep-busca': el => { clearTimeout(el._t); el._t = setTimeout(() => buscarCep(el), 300); },
   'busca-cli': el => {
     termo = el.value; clearTimeout(el._t);
     el._t = setTimeout(() => { const pos = el.selectionStart; delete el.dataset.semRedesenho; window.zlDesenhar(); const n = document.querySelector('[data-digitar="busca-cli"]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }, 250);

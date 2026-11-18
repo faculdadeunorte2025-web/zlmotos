@@ -4,6 +4,7 @@ import { registrarLog } from '../firebase.js';
 import { moeda, num, esc, hojeISO, somaDias, dataBR, diasDesde, gerarId, copia, abrirModal, fecharModal, confirmar, aviso, erro, icone, lerForm, linkWhats, soNumeros } from '../util.js';
 import { orcamentoPDF, podeCompartilharArquivo } from '../pdf.js';
 import { cartaoOrc, linhaCartao, linhaPix, resumoOrc, pctBR, noCartao } from '../cartao.js';
+import { caixaNotaHTML, acoesNota } from '../nfse.js';
 import { FORMAS } from '../util.js';
 
 const STATUS = {
@@ -162,6 +163,8 @@ function formulario() {
       ${!o.pago ? `<button class="btn" data-acao="pagar-orc" style="margin-left:auto">Registrar pagamento</button>` : `<button class="btn btn-fantasma" data-acao="despagar-orc" style="margin-left:auto">Desfazer pagamento</button>`}</div>
   </div>` : ''}
 
+  ${caixaNotaHTML(o)}
+
   ${!o._novo ? `<div class="acoes" style="margin-top:16px">
     <button class="btn btn-fantasma" data-acao="duplicar-orc">${icone('copiar')} Duplicar</button>
     ${o.arquivado || s === 'pendente' || s === 'enviado' ? `<button class="btn btn-fantasma" data-acao="arquivar-orc">${o.arquivado ? 'Desarquivar' : 'Arquivar'}</button>` : ''}
@@ -225,6 +228,7 @@ function textoWhats(o) {
 
 // ── Ações ───────────────────────────────────────────────────────────
 export const acoes = {
+  ...acoesNota({ atual: () => atual, salvar: msg => salvar(msg), sujo: () => sujo }),
   'novo-orc': () => { novo(); window.zlIr('orcamentos', 'novo'); },
   'filtro-orc': el => { filtro = el.dataset.f; window.zlDesenhar(); },
   'voltar-orc': async () => {
@@ -278,7 +282,7 @@ export const acoes = {
     await salvar(atual.pago ? 'Orçamento quitado' : 'Pagamento parcial registrado');
   },
   'despagar-orc': async () => { if (!(await confirmar('Marcar este orçamento como não pago?'))) return; atual.pago = false; atual.valorPago = 0; await salvar('Pagamento desfeito'); },
-  'duplicar-orc': () => { const c = copia(atual); Object.assign(c, { id: gerarId('orc'), data: hojeISO(), validade: somaDias(7), status: 'pendente', pago: false, valorPago: 0, criadoEm: '', _novo: true }); atual = prepara(c); sujo = true; window.zlIr('orcamentos', atual.id); aviso('Cópia criada — confira e salve'); },
+  'duplicar-orc': () => { const c = copia(atual); Object.assign(c, { id: gerarId('orc'), data: hojeISO(), validade: somaDias(7), status: 'pendente', pago: false, valorPago: 0, criadoEm: '', _novo: true }); delete c.nfse; delete c.entradaComissao; atual = prepara(c); sujo = true; window.zlIr('orcamentos', atual.id); aviso('Cópia criada — confira e salve'); },
   'excluir-orc': async () => {
     if (!(await confirmar(`Excluir o orçamento de ${esc(atual.cliente)} (${moeda(totalOrcamento(atual).total)})? Isso não pode ser desfeito.`, { botao: 'Excluir', perigo: true }))) return;
     await excluirOrcamento(atual.id); atual = null; aviso('Orçamento excluído'); window.zlIr('orcamentos');
