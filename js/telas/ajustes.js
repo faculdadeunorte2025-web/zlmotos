@@ -52,7 +52,7 @@ export function tela() {
     </div>
     <p class="mudo" style="font-size:.8rem;margin:10px 0 0">O backup baixa tudo que está no servidor, inclusive dados de módulos antigos (OS, estoque, vendas). Guarde o arquivo em local seguro.</p>
   </div>
-  <p class="mudo" style="text-align:center;font-size:.75rem;margin-top:24px">ZL Motos · versão 7.4.0</p>`;
+  <p class="mudo" style="text-align:center;font-size:.75rem;margin-top:24px">ZL Motos · versão 7.4.1</p>`;
 }
 
 export const acoes = {

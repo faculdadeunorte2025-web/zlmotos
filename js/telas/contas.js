@@ -85,7 +85,7 @@ function modalConta(c = {}) {
         <label class="campo"><span>Valor (R$)</span><input type="number" name="valor" min="0" step="0.01" value="${esc(c.valor || '')}"></label>
         <label class="campo"><span>Vencimento</span><input type="date" name="vencimento" value="${esc(c.vencimento || '')}"></label>
         <label class="campo"><span>Repetir</span><select name="recorrencia">${Object.entries(REPETE).map(([k, v]) => `<option value="${k}" ${(c.recorrencia || 'unica') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
-        <label class="campo"><span>Categoria da saída</span><select name="categoria">${cats.map(x => `<option ${(c.categoria || 'Fixo') === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+        <label class="campo"><span>Categoria</span><select name="categoria">${cats.map(x => `<option ${(c.categoria || 'Fixo') === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
       </div>
       <label class="campo"><span>Observação</span><input type="text" name="obs" value="${esc(c.obs || '')}"></label>
       <input type="hidden" name="id" value="${esc(c.id || '')}">`,
@@ -104,21 +104,18 @@ export const acoes = {
   'rs-sair': async () => { if (await confirmar('Desconectar do RS Socorro neste aparelho?', { botao: 'Desconectar' })) { await window.zlSocorro.sairSocorro(); window.zlDesenhar(); } },
   'rs-pagar': async el => {
     const M = window.zlSocorro, c = M && M.RS.lista.find(x => x.id === el.dataset.id); if (!c) return;
-    const agora = new Date();
-    if (S.ano !== agora.getFullYear()) return erro(`O Caixa está em ${S.ano}. Volte para ${agora.getFullYear()} para lançar o pagamento.`);
-    if (!S.carregado) return erro('Aguarde os dados carregarem.');
-    if (!(await confirmar(`Pagar a corrida da moto ${esc(c.placa || '')} (${moeda(c.valorFinal)})? Ela fica marcada como paga no RS Socorro e a saída é lançada no Caixa de hoje.`, { botao: 'Pagar' }))) return;
+    // Só marca como paga. A saída no Caixa é lançada à mão.
+    if (!(await confirmar(`Marcar a corrida da moto ${esc(c.placa || '')} (${moeda(c.valorFinal)}) como paga no RS Socorro? Nada é lançado no Caixa: lance a saída à mão.`, { botao: 'Marcar como paga' }))) return;
     try { await M.marcarPagoSocorro(c.id, true); } catch (e) { return erro('Não foi possível marcar no RS Socorro. Verifique a internet.'); }
-    S.dados[agora.getMonth()].variaveis.push({ data: hojeISO(), hora: horaAgora(), desc: `RS Socorro — ${c.placa || ''} ${c.moto || ''}`.trim(), valor: String(num(c.valorFinal).toFixed(2)), cat: 'Socorro', formaPgto: '', pago: true, _socorroId: c.id, _id: gerarId('v') });
-    salvarLancamentos(); aviso('Corrida paga. Saída lançada em ' + MESES[agora.getMonth()] + '.'); window.zlDesenhar();
+    aviso('Corrida marcada como paga'); window.zlDesenhar();
   },
   'rs-desfazer': async el => {
     const M = window.zlSocorro, c = M && M.RS.lista.find(x => x.id === el.dataset.id); if (!c) return;
-    if (!(await confirmar(`Desfazer o pagamento da moto ${esc(c.placa || '')}? Ela volta a ficar em aberto no RS Socorro e a saída sai do Caixa.`, { botao: 'Desfazer' }))) return;
+    if (!(await confirmar(`Desfazer o pagamento da moto ${esc(c.placa || '')}? Ela volta a ficar em aberto no RS Socorro.`, { botao: 'Desfazer' }))) return;
     try { await M.marcarPagoSocorro(c.id, false); } catch (e) { return erro('Não foi possível desmarcar no RS Socorro.'); }
     let removeu = false;
     Object.values(S.dados).forEach(d => { const i = (d.variaveis || []).findIndex(v => v._socorroId === c.id); if (i >= 0) { d.variaveis.splice(i, 1); removeu = true; } });
-    if (removeu) salvarLancamentos();
+    if (removeu) salvarLancamentos(); // só tira saídas antigas que eram lançadas sozinhas
     aviso('Pagamento desfeito'); window.zlDesenhar();
   },
   'nova-conta': () => modalConta(),
@@ -141,27 +138,25 @@ export const acoes = {
     const c = S.contas.find(x => x.id === el.dataset.id); if (!c) return;
     if (!(num(c.valor) > 0)) { erro('Essa conta está sem valor. Edite e informe o valor.'); return modalConta(c); }
     const agora = new Date();
-    if (S.ano !== agora.getFullYear()) return erro(`O Caixa está em ${S.ano}. Volte para ${agora.getFullYear()} para lançar o pagamento no mês de hoje.`);
-    if (!S.carregado) return erro('Aguarde os dados carregarem.');
-    if (!(await confirmar(`Marcar "${esc(c.nome)}" (${moeda(c.valor)}) como paga? A saída será lançada no Caixa de hoje.`, { botao: 'Pagar' }))) return;
+    if (!(await confirmar(`Marcar "${esc(c.nome)}" (${moeda(c.valor)}) como paga? Nada é lançado no Caixa: lance a saída à mão.`, { botao: 'Marcar como paga' }))) return;
     c.status = 'pago'; c.pagoEm = agora.toISOString(); c.dataPago = hojeISO();
     if (repete(c)) {
       const p = { ...c, id: gerarId('cp'), status: 'pendente', vencimento: proximo(c.vencimento, c.recorrencia) };
       delete p.pagoEm; delete p.dataPago; delete p.proximaId;
       S.contas.push(p); c.proximaId = p.id;
     }
-    S.dados[agora.getMonth()].variaveis.push({ data: hojeISO(), hora: horaAgora(), desc: c.nome + (c.obs ? ' (' + c.obs + ')' : ''), valor: c.valor, cat: c.categoria || 'Fixo', formaPgto: '', pago: true, _contaPagarId: c.id, _id: gerarId('v') });
-    salvarLancamentos(); await salvarContas();
-    aviso('Paga. Saída lançada em ' + MESES[agora.getMonth()] + '.'); window.zlDesenhar();
+    // Só marca como paga. A saída no Caixa é lançada à mão.
+    await salvarContas();
+    aviso('Conta marcada como paga'); window.zlDesenhar();
   },
   'desfazer-conta': async el => {
     const c = S.contas.find(x => x.id === el.dataset.id); if (!c) return;
-    if (!(await confirmar(`Desfazer o pagamento de "${esc(c.nome)}"? A saída lançada no Caixa também será removida.`, { botao: 'Desfazer' }))) return;
+    if (!(await confirmar(`Desfazer o pagamento de "${esc(c.nome)}"? Ela volta a ficar pendente.`, { botao: 'Desfazer' }))) return;
     let removeu = false;
     Object.values(S.dados).forEach(d => { const i = (d.variaveis || []).findIndex(v => v._contaPagarId === c.id); if (i >= 0) { d.variaveis.splice(i, 1); removeu = true; } });
     if (c.proximaId) { const p = S.contas.find(x => x.id === c.proximaId); if (p && p.status !== 'pago') S.contas = S.contas.filter(x => x.id !== c.proximaId); }
     c.status = 'pendente'; delete c.pagoEm; delete c.dataPago; delete c.proximaId;
     if (removeu) salvarLancamentos();
-    await salvarContas(); aviso(removeu ? 'Pagamento desfeito' : 'Pagamento desfeito (a saída não estava no ano aberto)'); window.zlDesenhar();
+    await salvarContas(); aviso('Pagamento desfeito'); window.zlDesenhar();
   },
 };

@@ -262,7 +262,7 @@ export const acoes = {
         <label class="campo"><span>Forma de pagamento</span><select name="forma" data-mudar="pag-forma"><option value="">—</option>${FORMAS.map(f => `<option>${f}</option>`).join('')}</select></label>
         <label class="campo"><span>Valor recebido agora (R$)</span><input type="number" step="0.01" min="0" name="valor" id="pag-valor" value="${(t - ja).toFixed(2)}"></label>
         <p class="mudo" style="margin:0;font-size:.8rem">No cartão o valor já vem com a taxa embutida: ${esc(linhaCartao(t, cartaoOrc(atual, totalOrcamento(atual))))}.</p>
-        <label class="check"><input type="checkbox" name="lancar" checked> Lançar como entrada no Caixa de hoje</label>`,
+        <p class="mudo" style="margin:0;font-size:.8rem">Isto só marca o orçamento como pago. A entrada no Caixa você lança à mão.</p>`,
       rodape: `<div class="direita"><button class="btn" data-acao="fechar-modal">Cancelar</button><button class="btn btn-primario" data-acao="confirmar-pagamento">Confirmar</button></div>`
     });
   },
@@ -273,16 +273,11 @@ export const acoes = {
     atual.valorPago = Math.round((num(atual.valorPago) + v) * 100) / 100;
     atual.pago = atual.valorPago >= t - 0.009;
     if (f.forma) atual.formaPgto = f.forma;
-    if (f.lancar) {
-      const { S: E, salvarLancamentos } = await import('../dados.js');
-      const h = new Date();
-      if (h.getFullYear() !== E.ano) erro('A entrada não foi lançada: o Caixa está em outro ano.');
-      else { E.dados[h.getMonth()].entradas.push({ data: hojeISO(), hora: String(h.getHours()).padStart(2, '0') + ':' + String(h.getMinutes()).padStart(2, '0'), desc: 'Orçamento — ' + atual.cliente + (atual.veiculo ? ' (' + atual.veiculo + ')' : ''), valor: v.toFixed(2), formaPgto: f.forma || '', pago: true, _orcId: atual.id, _id: gerarId('e') }); salvarLancamentos(); }
-    }
+    // Não lança nada no Caixa: as entradas são lançadas à mão.
     fecharModal();
     await salvar(atual.pago ? 'Orçamento quitado' : 'Pagamento parcial registrado');
   },
-  'despagar-orc': async () => { if (!(await confirmar('Marcar este orçamento como não pago? (entradas já lançadas no Caixa continuam lá)'))) return; atual.pago = false; atual.valorPago = 0; await salvar('Pagamento desfeito'); },
+  'despagar-orc': async () => { if (!(await confirmar('Marcar este orçamento como não pago?'))) return; atual.pago = false; atual.valorPago = 0; await salvar('Pagamento desfeito'); },
   'duplicar-orc': () => { const c = copia(atual); Object.assign(c, { id: gerarId('orc'), data: hojeISO(), validade: somaDias(7), status: 'pendente', pago: false, valorPago: 0, criadoEm: '', _novo: true }); atual = prepara(c); sujo = true; window.zlIr('orcamentos', atual.id); aviso('Cópia criada — confira e salve'); },
   'excluir-orc': async () => {
     if (!(await confirmar(`Excluir o orçamento de ${esc(atual.cliente)} (${moeda(totalOrcamento(atual).total)})? Isso não pode ser desfeito.`, { botao: 'Excluir', perigo: true }))) return;
